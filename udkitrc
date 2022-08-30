@@ -1,0 +1,21 @@
+#!/bin/bash
+
+export UDKIT_BASE=$HOME/.udkit
+
+## Golang configuration
+if [ -d "$UDKIT_BASE/sdk/golang" ]; then
+  export GOPATH="$UDKIT_BASE/sdk/golang/1.19"
+  export PATH="$GOPATH/bin:$PATH"
+fi
+
+## Android configuration
+if [ -d "$UDKIT_BASE/ide/android" ]; then
+  export ANDROID_HOME="$UDKIT_BASE/ide/android"
+  export PATH="$ANDROID_HOME/bin:$PATH"
+fi
+
+## direnv configuration - THIS MUST BE TO THE END ##
+if [ -n "$(which direnv)" ]; then
+  export DIRENV_LOG_FORMAT=""
+  eval "$(direnv hook bash)"
+fi
