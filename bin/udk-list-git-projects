@@ -1,0 +1,16 @@
+#!/bin/bash -e
+# Script to list out the git-based projects (i.e., folders) present within a
+# given base folder.
+
+PROJ_ROOT="$1"
+
+if [ ! -d "$PROJ_ROOT" ]; then
+  echo -e "Usage: $(basename $0) <base-folder-containing-git-projects>"
+  exit 1
+fi
+
+pushd $PROJ_ROOT >/dev/null
+projects=$(find . -mindepth 2 -maxdepth 2 -name ".git" -type d | sed -e 's/\/.git$//g' -e 's/^.\///g')
+popd >/dev/null
+
+echo "$projects"

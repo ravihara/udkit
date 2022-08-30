@@ -1,0 +1,246 @@
+#!/bin/bash
+
+export IFS=$(echo -en '\n\b')
+
+usage_help="Usage: $(basename $0) <ssca-command> <ssca-config-file>"
+cmds_help="Commands: init-ca | create-cert | cleanup-ca"
+
+## Check for required commandline arguments
+if [ $# -ne 2 ]; then
+    echo -e $usage_help
+    echo -e $cmds_help
+    exit 1
+fi
+
+CMD=$1
+CONFIG_FILE=$2
+
+JAVA_KEYTOOL=$(which keytool 2>/dev/null)
+
+## Check for the existance of configuration file
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo -e "Specified configuration file '$CONFIG_FILE' does not exist!!"
+    exit 1
+fi
+
+## Mandatory configuration attributes
+req_config_params=(
+    ROOTCA_PASS
+    CA_BASE
+    CA_COUNTRY
+    CA_STATE
+    CA_LOCATION
+    CA_ORGANIZATION
+    CA_ORG_UNIT
+    CA_COMMON_NAME
+    CA_EMAIL_ADDRESS
+    CA_VALID_DAYS
+    CA_CERT_PASS
+    CA_CERT_FQDN
+    CA_CERT_SAN
+    CA_CERT_VALID_DAYS
+)
+
+## Load the configuration
+source "$CONFIG_FILE"
+
+for param in "${req_config_params[@]}"; do
+    [[ -z "${!param}" ]] && echo -e "Required configuration parameter '$param' is missing" && exit 1
+    export $param
+done
+
+if [ ! $(echo $CA_CERT_FQDN | grep -P '(?=^.{1,254}$)(^(?>(?!\d+\.)[a-zA-Z0-9_\-]{1,63}\.?)+(?:[a-zA-Z]{2,})$)') ]; then
+    echo -e "CA Certificate common-name should be a Fully Qualified Domain Name (FQDN)"
+    exit 1
+fi
+
+## Create dynamic params
+export CA_SUBJECT="/C=${CA_COUNTRY}/ST=${CA_STATE}/L=${CA_LOCATION}/O=${CA_ORGANIZATION}/OU=${CA_ORG_UNIT}/CN=${CA_COMMON_NAME}"
+export CA_CERT_SUBJECT="/C=${CA_COUNTRY}/ST=${CA_STATE}/L=${CA_LOCATION}/O=${CA_ORGANIZATION}/OU=${CA_ORG_UNIT}/CN=${CA_CERT_FQDN}"
+
+## Enter the setup base folder
+script_base=$(udk-get-self-dir $0)
+
+mkdir -p $CA_BASE
+
+function init_ca() {
+    echo -e "${TRML_HL}Entering SSCA setup folder (${CA_BASE})...${TRML_NC}"
+    pushd $CA_BASE >/dev/null
+
+    ## Check for previous root-ca folder
+    if [ -d "rootca" ]; then
+        mesg="${TRML_HL}'${CA_BASE}/rootca'${TRML_NC}"
+
+        echo -e "$mesg folder already exists! Cannot setup SSCA."
+        popd >/dev/null
+
+        exit 1
+    fi
+
+    ## Check for previous dist folder
+    if [ -d "dist" ]; then
+        mesg="${TRML_HL}'${CA_BASE}/dist'${TRML_NC}"
+
+        echo -e "$mesg folder already exists! You might have previously generated certificates."
+        popd >/dev/null
+
+        exit 1
+    fi
+
+    ## Setup root-ca folder structure
+    echo -e "${TRML_HL}Setting up root-ca folder structure...${TRML_NC}"
+
+    mkdir -p rootca/{certs,csr,crl,newcerts,private}
+    chmod 700 rootca/private
+    touch rootca/index.txt
+    echo 1000 >rootca/serial
+    echo 1000 >rootca/crlnumber
+    cp -a ${script_base}/../skel/ssca/openssl_rootca.cnf rootca/openssl_rootca.cnf && sync
+    cp -a ${script_base}/../skel/ssca/openssl_serv.cnf rootca/openssl_serv.cnf && sync
+    chmod 644 rootca/*.cnf
+
+    ## Enter the root-ca folder
+    echo -e "${TRML_HL}Entering root-ca folder...${TRML_NC}"
+    pushd rootca >/dev/null
+
+    ## Create the rootca certificate
+    echo -e "${TRML_HL}Creating root-ca certificate and key pair...${TRML_NC}"
+    openssl req -config openssl_rootca.cnf -passin pass:$ROOTCA_PASS -passout pass:$ROOTCA_PASS -subj "$CA_SUBJECT" \
+        -new -x509 -days ${CA_VALID_DAYS} -sha256 -extensions v3_ca -keyout private/rootca.key.pem -out certs/rootca.cert.pem >/dev/null
+
+    chmod 400 private/rootca.key.pem
+    chmod 444 certs/rootca.cert.pem
+
+    ## Verify the rootca certificate
+    echo -e "${TRML_HL}Verifying root-ca certificate...${TRML_NC}"
+    openssl x509 -noout -text -passin pass:$ROOTCA_PASS -in certs/rootca.cert.pem >/dev/null
+
+    ## Exit the root-ca folder
+    popd >/dev/null
+
+    ## Setup folder to store distributable certificates
+    mkdir -p dist
+
+    ## Create the certificate chain file
+    echo -e "${TRML_HL}Creating root-ca file...${TRML_NC}"
+    cp rootca/certs/rootca.cert.pem dist/root-ca.cert.pem && sync
+    chmod 444 dist/root-ca.cert.pem
+
+    ## Create certificate chain trust-store (JKS)
+    echo -e "${TRML_HL}Creating root-ca trust-store file...${TRML_NC}"
+    keytool -importcert -noprompt -keystore dist/root-ca.jks -storepass $ROOTCA_PASS -alias "ssca-rootca" -trustcacerts -file dist/root-ca.cert.pem && sync
+
+    ## Create dhparam file
+    echo -e "${TRML_HL}Creating dhparam file...${TRML_NC}"
+    openssl dhparam -out dist/dhparam.pem 4096
+
+    ## Exit the setup base folder
+    popd >/dev/null
+
+    echo -e "${TRML_HL}All Done.${TRML_NC}"
+}
+
+function create_cert() {
+    ## Check for previous root-ca folder
+    if [ ! -d "$CA_BASE/rootca" ]; then
+        mesg="${TRML_HL}'${CA_BASE}/rootca'${TRML_NC}"
+
+        echo -e "Root-CA setup folder $mesg does not exist! Cannot proceed further."
+        exit 1
+    fi
+
+    ## Enter the setup base folder
+    echo -e "${TRML_HL}Entering SSCA setup folder (${CA_BASE})...${TRML_NC}"
+    pushd $CA_BASE >/dev/null
+
+    if [ -f "rootca/private/${CA_CERT_FQDN}.key.pem" ]; then
+        echo -e "Key file for '$CA_CERT_FQDN' already exists! You might have already created required certificate files."
+        popd >/dev/null
+
+        exit 1
+    fi
+
+    echo -e "Creating csr and key pair for ${TRML_HL}${CA_CERT_FQDN}...${TRML_NC}"
+    openssl req -config rootca/openssl_serv.cnf -passin pass:$CA_CERT_PASS -passout pass:$CA_CERT_PASS \
+        -extensions server_cert -subj "$CA_CERT_SUBJECT" -keyout rootca/private/${CA_CERT_FQDN}.key.pem -new -sha256 \
+        -out rootca/csr/${CA_CERT_FQDN}.csr.pem >/dev/null
+
+    chmod 400 rootca/private/${CA_CERT_FQDN}.key.pem
+
+    echo -e "Creating root-ca self-signed certificate for ${TRML_HL}${CA_CERT_FQDN}...${TRML_NC}"
+    openssl ca -config rootca/openssl_serv.cnf -batch -extensions server_cert -days ${CA_CERT_VALID_DAYS} -notext -md sha256 \
+        -passin pass:$ROOTCA_PASS -in rootca/csr/${CA_CERT_FQDN}.csr.pem -out rootca/certs/${CA_CERT_FQDN}.cert.pem >/dev/null
+
+    chmod 444 rootca/certs/${CA_CERT_FQDN}.cert.pem
+
+    echo -e "${TRML_HL}Verifying certificate...${TRML_NC}"
+    openssl x509 -noout -text -passin pass:$CA_CERT_PASS -in rootca/certs/${CA_CERT_FQDN}.cert.pem >/dev/null
+
+    echo -e "${TRML_HL}Validating certificate against root-ca...${TRML_NC}"
+    is_cert_ok="$(openssl verify -CAfile dist/root-ca.cert.pem rootca/certs/${CA_CERT_FQDN}.cert.pem | egrep -i "${CA_CERT_FQDN}.cert.pem: OK" | egrep -v "egrep")"
+
+    if [ -z "$is_cert_ok" ]; then
+        echo -e "Something wrong happened while creating certificate for ${CA_CERT_FQDN}!"
+        popd >/dev/null ## Exit from setup base folder
+
+        exit 1
+    fi
+
+    rm -f dist/${CA_CERT_FQDN}.*
+    cp rootca/certs/${CA_CERT_FQDN}.cert.pem dist/
+    openssl rsa -passin pass:$CA_CERT_PASS -in rootca/private/${CA_CERT_FQDN}.key.pem -out dist/${CA_CERT_FQDN}.key.pem && sync
+    cat dist/${CA_CERT_FQDN}.cert.pem dist/${CA_CERT_FQDN}.key.pem >dist/${CA_CERT_FQDN}.all.pem
+
+    echo -e "${TRML_HL}Exporting combined cert+key file to pkcs12 format...${TRML_NC}"
+    openssl pkcs12 -export -passin pass:$CA_CERT_PASS -in dist/${CA_CERT_FQDN}.all.pem -passout pass:$CA_CERT_PASS -out dist/${CA_CERT_FQDN}.pkcs12
+
+    if [ -n "$JAVA_KEYTOOL" ]; then
+        echo -e "${TRML_HL}Creating Java KeyStore File...${TRML_NC}"
+        keytool -importkeystore -noprompt -srcstoretype pkcs12 -srcalias "1" -srckeystore dist/${CA_CERT_FQDN}.pkcs12 -srcstorepass $CA_CERT_PASS \
+            -destkeystore dist/${CA_CERT_FQDN}.jks -deststoretype pkcs12 -destalias "${CA_CERT_FQDN}" -deststorepass $CA_CERT_PASS && sync
+
+        echo -e "${TRML_HL}Adding root-ca certificates to Java KeyStore File...${TRML_NC}"
+        keytool -importcert -noprompt -keystore dist/${CA_CERT_FQDN}.jks -storepass $CA_CERT_PASS -alias "serv-rootca" \
+            -trustcacerts -file dist/root-ca.cert.pem && sync
+    fi
+
+    rm -f dist/${CA_CERT_FQDN}.all.pem
+
+    ## Exit the setup base folder
+    popd >/dev/null
+
+    echo -e "${TRML_HL}All Done.${TRML_NC}"
+}
+
+function cleanup_ca() {
+    ## Check for existance of base folder
+    if [ ! -d "$CA_BASE" ]; then
+        mesg="${TRML_HL}'${CA_BASE}'${TRML_NC}"
+
+        echo -e "$mesg folder does not exist! Nothing to clean."
+        exit 1
+    else
+        echo -en "${TRML_HL}Cleaning up the SSCA setup folder... ${TRML_NC}"
+        rm -rf $CA_BASE/{rootca,dist} && sync
+        echo -e "${TRML_HL}All Done.${TRML_NC}"
+    fi
+}
+
+case "$CMD" in
+init-ca)
+    init_ca
+    ;;
+create-cert)
+    create_cert
+    ;;
+cleanup-ca)
+    cleanup_ca
+    ;;
+*)
+    echo -e $usage_help
+    echo -e $cmds_help
+    exit 1
+    ;;
+esac
+
+exit 0

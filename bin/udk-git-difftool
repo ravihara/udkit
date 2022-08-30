@@ -1,0 +1,5 @@
+#!/bin/bash
+# Git diff script that internally uses wrapper-script to
+# use one of the available system tools (Ex., meld / vimdiff).
+
+[ $# -eq 7 ] && udk-git-mergetool "$2" "$5"

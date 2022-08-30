@@ -1,0 +1,13 @@
+#!/bin/bash -e
+# Script to fetch the process-id based on a search string
+
+proc_str="$1"
+
+if [ -z "$proc_str" ]; then
+  echo ""
+  exit 1
+fi
+
+proc_id=$(/bin/ps -fu $USER | grep "$proc_str" | grep -v "grep" | awk '{print $2}')
+
+echo "$proc_id"

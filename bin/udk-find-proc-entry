@@ -1,0 +1,13 @@
+#!/bin/bash -e
+
+proc_id="$1"
+proc_str="$2"
+
+if [ -z "$proc_id" -o -z "$proc_str" ]; then
+  echo ""
+  exit 1
+fi
+
+proc_val="$(/bin/ps -eo pid,command | grep $proc_id | grep "$proc_str" | grep -v "grep")"
+
+echo "$proc_val"

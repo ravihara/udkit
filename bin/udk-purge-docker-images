@@ -1,0 +1,12 @@
+#!/bin/bash -e
+# Script to remove all the docker images in the system
+
+TO_BE_REMOVED=$(docker images | awk '{print $3}' | grep -v IMAGE)
+
+if [ -n "${TO_BE_REMOVED}" ]; then
+  docker rmi -f ${TO_BE_REMOVED} && sync
+else
+  echo -e "No docker images present"
+fi
+
+exit 0

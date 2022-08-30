@@ -1,0 +1,42 @@
+#!/bin/bash -e
+# Script to create new branch with given name in all the git projects
+# under the current folder and to set upstream origin b/n local and remote
+
+# Branch name is mandatory
+if [ $# -ne 1 ]; then
+  echo -e "Usage: $0 <branch-to-create>"
+  exit 1
+fi
+
+TARGET_BRANCH=$1
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    git fetch && sync
+
+    local_branch="$(git branch -a | sed -e 's/^\*\?[[:space:]]\+//g' | egrep -e "^${TARGET_BRANCH}$" || echo)"
+    remote_branch="$(git branch -a | sed -e 's/^\*\?[[:space:]]\+//g' | egrep -e "^remotes\/origin\/${TARGET_BRANCH}$" || echo)"
+
+    if [ -n "$local_branch" -a -n "$remote_branch" ] || [ -n "$remote_branch" ]; then
+      echo -e "\n${TRML_HL}###### Using existing branch '$TARGET_BRANCH' for - '$repo' ######${TRML_NC}"
+      git checkout $TARGET_BRANCH
+    elif [ -n "$local_branch" ]; then
+      echo -e "\n${TRML_HL}###### Using local branch '$TARGET_BRANCH' for - '$repo' ######${TRML_NC}"
+      git checkout $TARGET_BRANCH && git push origin $TARGET_BRANCH
+    else
+      echo -e "\n${TRML_HL}###### Creating branch '$TARGET_BRANCH' for - '$repo' ######${TRML_NC}"
+      git checkout -b $TARGET_BRANCH && git push origin $TARGET_BRANCH
+    fi
+
+    git push --set-upstream origin $TARGET_BRANCH
+
+    popd >/dev/null
+  fi
+done
+
+exit 0

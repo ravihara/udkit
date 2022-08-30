@@ -1,0 +1,27 @@
+#!/bin/bash -e
+# Script to switch to the given branch for each of the
+# git-projects under the current folder.
+
+# Branch name is mandatory
+if [ $# -ne 1 ]; then
+  echo -e "Usage: $0 <branch-to-switch-to>"
+  exit 1
+fi
+
+BRANCH_NAME="$1"
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    echo -e "\n${TRML_HL}###### Switching to '$BRANCH_NAME' for '$repo' ######${TRML_NC}"
+    git checkout $BRANCH_NAME && sync
+
+    popd >/dev/null
+  fi
+done
+
+exit 0

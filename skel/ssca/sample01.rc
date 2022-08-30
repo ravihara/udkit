@@ -1,0 +1,24 @@
+#######################################################
+## Remember to put space-separated values in quotes. ##
+## All the fields below are mandatory.               ##
+#######################################################
+
+## RootCA configuration
+ROOTCA_PASS=SampleRootPass123
+
+## CA parameters
+CA_BASE=$HOME/Documents/ssca
+CA_COUNTRY=IN
+CA_STATE=Karnataka
+CA_LOCATION=Bangalore
+CA_ORGANIZATION="Example Company"
+CA_ORG_UNIT="Dev Ops"
+CA_COMMON_NAME="Example Company CA"
+CA_EMAIL_ADDRESS=dev@example.com
+CA_VALID_DAYS=750
+
+## Server certificate parameters (i.e., passcode, CN and SAN)
+CA_CERT_PASS=SampleServPass123
+CA_CERT_FQDN=sample01.example.com
+CA_CERT_SAN="DNS:sample01,DNS:sample01.example.com,IP:192.168.0.10"
+CA_CERT_VALID_DAYS=730 ## At the time of creation, this value should be less than remaining CA_VALID_DAYS

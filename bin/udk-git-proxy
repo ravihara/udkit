@@ -1,0 +1,10 @@
+#!/bin/bash
+# This script setups up git to use http-proxy when 'http_proxy' environment
+# variable is set.
+
+if [ -n "$http_proxy" ]; then
+    proxy_host="$(echo $http_proxy | awk -F ':' {'print $2'} | sed -e 's/^\/\+//g')"
+    proxy_port="$(echo $http_proxy | awk -F ':' {'print $3'})"
+
+    socat STDIO PROXY:$proxy_host:$1:$2,proxyport=$proxy_port
+fi

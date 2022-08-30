@@ -1,0 +1,25 @@
+#!/bin/bash -e
+# Script to find the absolute directory path of a given file or,
+# the current script when called without arguments.
+
+if [ -n "$1" ]; then
+  SOURCE="$1"
+else
+  SOURCE="${BASH_SOURCE[0]}"
+fi
+
+while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
+  TARGET="$(readlink -e "$SOURCE")"
+
+  if [[ $SOURCE == /* ]]; then
+    SOURCE="$TARGET"
+  else
+    DIR="$(dirname "$SOURCE")"
+    SOURCE="$DIR/$TARGET" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+  fi
+done
+
+SOURCE="$(echo $SOURCE | sed -e 's/^\.\///')"
+DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+echo "$DIR"

@@ -1,0 +1,20 @@
+#!/bin/bash -e
+# Script to check the code changes for all the git-projects under
+# the current folder by presenting git-difftool for each of them.
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    echo ""
+    echo -e "${TRML_HL}###### Checking code changes for '$repo' ######${TRML_NC}"
+    git difftool
+
+    popd >/dev/null
+  fi
+done
+
+exit 0

@@ -1,0 +1,86 @@
+#!/bin/bash -e
+# Script to delete a given branch in all the git projects under
+# the current folder. It deletes local branch by default. Anyways
+# use this script with EXTREME CAUTION!!! You have been warned :-)
+
+echo "This SCRIPT IS DANGEROUS!! I hope you know what you are doing?!"
+select yn in "Yes" "No"; do
+  case $yn in
+  Yes) break ;;
+  No) exit ;;
+  esac
+done
+
+# Branch name to delete, is mandatory.
+if [ $# -lt 1 -o $# -gt 2 ]; then
+  echo -e "Usage: $(basename $0) <branch-to-delete> [local | remote | both]"
+  exit 1
+fi
+
+TARGET_BRANCH=$1
+DELETE_OPT="local"
+
+if [ "x" != "x$2" ] && [ "$2" == "remote" -o "$2" == "both" ]; then
+  DELETE_OPT="$2"
+fi
+
+## Check for mandatory branches
+if [ "$TARGET_BRANCH" == "master" ] || [ "$TARGET_BRANCH" == "develop" ]; then
+  echo -e "Sorry!! Cannot delete mandatory branch '$TARGET_BRANCH' from repo. Please contact Github administrator."
+  exit 2
+fi
+
+delete_branch() {
+  case "$1" in
+  local)
+    echo -e "\n${TRML_HL}###### Deleting local branch '$TARGET_BRANCH' for - '$repo' ######${TRML_NC}"
+    git branch -d $TARGET_BRANCH
+    ;;
+  remote)
+    echo -e "\n${TRML_HL}###### Deleting remote branch '$TARGET_BRANCH' for - '$repo' ######${TRML_NC}"
+    git push origin --delete $TARGET_BRANCH
+    ;;
+  both)
+    echo -e "\n${TRML_HL}###### Deleting local and remote '$TARGET_BRANCH' branches for - '$repo' ######${TRML_NC}"
+    git branch -d $TARGET_BRANCH && git push origin --delete $TARGET_BRANCH
+    ;;
+  *)
+    echo "Unknown delete option while trying to delete '$TARGET_BRANCH' branch"
+    return
+    ;;
+  esac
+}
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    git fetch && sync
+
+    current_branch="$(git branch --list | egrep -e "^\*" | awk {'print $2'})"
+    local_branch="$(git branch -a | sed -e 's/^\*\?[[:space:]]\+//g' | egrep -e "^${TARGET_BRANCH}$" || echo)"
+    remote_branch="$(git branch -a | sed -e 's/^\*\?[[:space:]]\+//g' | egrep -e "^remotes\/origin\/${TARGET_BRANCH}$" || echo)"
+
+    if [ "$TARGET_BRANCH" == $current_branch ]; then
+      echo -e "Target branch '$TARGET_BRANCH' is your current branch too! Cannot delete, skipping it."
+      popd >/dev/null && continue
+    fi
+
+    if [ -n "$local_branch" -a -n "$remote_branch" ]; then
+      delete_branch $DELETE_OPT
+    elif [ -n "$local_branch" -a "$DELETE_OPT" == "local" ]; then
+      delete_branch $DELETE_OPT
+    elif [ -n "$remote_branch" -a "$DELETE_OPT" == "remote" ]; then
+      delete_branch $DELETE_OPT
+    else
+      echo -e "\n${TRML_HL}###### No '$TARGET_BRANCH' branch to delete, for '$repo' ######${TRML_NC}"
+    fi
+
+    popd >/dev/null
+  fi
+done
+
+exit 0

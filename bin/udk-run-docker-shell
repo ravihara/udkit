@@ -1,0 +1,13 @@
+#!/bin/bash -e
+# Script to facilitate login to a docker container's shell
+
+DOCKER_IMG=$1
+
+if [ -z "$DOCKER_IMG" ]; then
+  echo -e "Usage: $(basename $0) <docker-image-to-launch>"
+  exit 1
+fi
+
+docker run --rm -ti $DOCKER_IMG /bin/sh
+
+exit 0

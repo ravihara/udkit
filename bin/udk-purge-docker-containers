@@ -1,0 +1,12 @@
+#!/bin/bash -e
+# Script to purge all the docker containers in the system
+
+TO_BE_REMOVED=$(docker ps -a | awk '{print $1}' | grep -v CONTAINER)
+
+if [ -n "${TO_BE_REMOVED}" ]; then
+  docker rm ${TO_BE_REMOVED} && sync
+else
+  echo -e "No docker containers present"
+fi
+
+exit 0

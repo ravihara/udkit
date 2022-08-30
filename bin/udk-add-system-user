@@ -1,0 +1,17 @@
+#!/bin/bash -e
+
+if [ $UID -ne 0 ]; then
+    echo "Try running this with sudo / superuser privileges. $(basename $0) aborted."
+    exit 1
+fi
+
+if [ $# -ne 3 ]; then
+    echo "Usage: $(basename $0) <user-name> <user-home> <gecos-string>"
+    exit 2
+fi
+
+echo "Adding system-user $1 with home-dir at $2 and description $3 ..."
+adduser --system --shell /bin/bash --gecos '$3' --group --disabled-password --home $2 $1
+echo "DONE."
+
+exit 0

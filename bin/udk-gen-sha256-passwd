@@ -1,0 +1,18 @@
+#!/bin/bash
+
+plain_pass="$1"
+
+if [ -z "$plain_pass" ]; then
+  echo -e "Usage: $(basename $0) <plain-password-to-be-encoded>"
+  exit 1
+fi
+
+function encode_password() {
+  SALT=$(od -A n -t x -N 4 /dev/urandom)
+  PASS=$SALT$(echo -n $1 | xxd -ps | tr -d '\n' | tr -d ' ')
+  PASS=$(echo -n $PASS | xxd -r -p | sha256sum | head -c 128)
+  PASS=$(echo -n $SALT$PASS | xxd -r -p | base64 | tr -d '\n')
+  echo $PASS
+}
+
+encode_password "$plain_pass"

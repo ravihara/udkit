@@ -1,0 +1,29 @@
+#!/bin/bash -e
+# Script to present code difference b/n the given source and the destination
+# branches for each of the git-projects under the current folder.
+
+# Check for mandatory arguments
+if [ $# -ne 2 ]; then
+  echo -e "Usage: $0 <source-branch> <destination-branch>"
+  exit 1
+fi
+
+SRC_BRANCH=$1
+DST_BRANCH=$2
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    echo ""
+    echo -e "${TRML_HL}###### Checking diff b/n '$SRC_BRANCH' and '$DST_BRANCH' for '$repo' ######${TRML_NC}"
+    git difftool $SRC_BRANCH $DST_BRANCH
+
+    popd >/dev/null
+  fi
+done
+
+exit 0

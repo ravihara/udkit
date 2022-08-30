@@ -1,0 +1,28 @@
+#!/bin/bash -e
+# Script to push latest commit in the given local branch to
+# the remote for each of the git-projects under the current folder.
+
+# Mandatory argument is the branch name
+if [ $# -ne 1 ]; then
+  echo -e "Usage: $0 <branch-to-update-to-remote>"
+  exit 1
+fi
+
+TARGET_BRANCH=$1
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    echo ""
+    echo -e "${TRML_HL}###### Updating remote '$TARGET_BRANCH' for '$repo' ######${TRML_NC}"
+    git checkout $TARGET_BRANCH && git push origin $TARGET_BRANCH && sync
+
+    popd >/dev/null
+  fi
+done
+
+exit 0

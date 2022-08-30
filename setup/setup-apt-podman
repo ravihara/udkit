@@ -1,0 +1,66 @@
+#!/bin/bash
+set -e
+
+podman_bin=$(which podman)
+
+if [ -n "${podman_bin}" ]; then
+    echo -e "Podman installation found at $podman_bin. Skipping the setup."
+    exit 1
+fi
+
+## Do all the job in tmp folder
+cd /tmp
+
+repo_key_base="https://download.opensuse.org/repositories/devel:kubic:libcontainers:stable"
+repo_base_path="https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable"
+
+distro_name=$(lsb_release -d | awk {'print $2'})
+
+if [ $distro_name == "Debian" ]; then
+    distro_version=$(lsb_release -d | awk {'print $4'} | awk -F '.' {'print $1'})
+else
+    distro_version=$(lsb_release -d | awk {'print $3'})
+fi
+
+if [ $distro_name == "Ubuntu" ]; then
+    repo_path="${repo_base_path}/xUbuntu_${distro_version}"
+    repo_key_path="${repo_key_base}/xUbuntu_${distro_version}/Release.key"
+elif [ $distro_name == "LMDE" ]; then
+    if [ $distro_version -eq 5 ]; then
+        distro_version=11
+    elif [ $distro_version -eq 4 ]; then
+        distro_version=10
+    fi
+
+    repo_path="${repo_base_path}/Debian_${distro_version}"
+    repo_key_path="${repo_key_base}/Debian_${distro_version}/Release.key"
+elif [ $distro_name == "Debian" ]; then
+    repo_path="${repo_base_path}/Debian_${distro_version}"
+    repo_key_path="${repo_key_base}/Debian_${distro_version}/Release.key"
+else
+    echo -e "Unhandled distribution ${distro_name}"
+    exit 1
+fi
+
+echo -e "The computed repo path is: ${repo_path}"
+echo -e "The computed repo-key path is: ${repo_key_path}"
+
+wget -nv ${repo_key_path} -O Release.key
+
+sudo sh -c "echo 'deb ${repo_path}/ /' > /etc/apt/sources.list.d/kubic-libcontainers.list"
+sudo apt-key add - <Release.key
+sudo apt-get update -qq
+sudo apt-get -qq -y install podman buildah
+sudo mkdir -p /etc/containers
+
+echo -e "[registries.search]\nregistries = ['docker.io', 'quay.io']" | sudo tee /etc/containers/registries.conf
+rm -f Release.key
+
+## For non-root user, setup the rootless podman configuration
+if [ $UID -ne 0 ]; then
+    sync && mkdir -p $HOME/.config/containers
+    podman info >/dev/null ## On first run, it tends to print some warning. Hence, skipping it.
+    podman info >$HOME/.config/containers/libpod.conf
+fi
+
+exit 0

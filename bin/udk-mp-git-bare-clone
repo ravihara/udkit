@@ -1,0 +1,48 @@
+#!/bin/bash -e
+# Script to bare-clone the git projects (i.e., folders) under
+# the current folder mainly for backup purposes.
+
+BACKUP_BASE="$1"
+BACKUP_BASE=${BACKUP_BASE:-/tmp}
+
+BACKUP_DIR="udk-backup-$(date '+%Y-%m-%d-%H-%M')"
+
+PROJ_ROOT="$(pwd)"
+PROJ_REPOS=$(udk-list-git-projects $PROJ_ROOT)
+
+BACKUP_PATH="${BACKUP_BASE}/${BACKUP_DIR}"
+
+if [ -d "$BACKUP_PATH" ]; then
+  echo -e "Backup folder '${BACKUP_PATH}' already exists! Cannot continue."
+  exit 1
+fi
+
+mkdir -p ${BACKUP_PATH}
+
+for repo in $PROJ_REPOS; do
+  if [ -d "$repo" ]; then
+    pushd $repo >/dev/null
+
+    echo ""
+    git_url=$(git config --get remote.origin.url)
+
+    pushd ${BACKUP_PATH} >/dev/null
+
+    echo -e "${TRML_HL}###### Bare-cloning git repository '${git_url}' ######${TRML_NC}"
+    git clone --bare $git_url && sync
+
+    popd >/dev/null
+
+    popd >/dev/null
+  fi
+done
+
+echo -en "Archiving the mirrored backup folder... "
+
+pushd ${BACKUP_BASE} >/dev/null
+7z a ${BACKUP_DIR}.7z ${BACKUP_DIR} >/dev/null && sync && rm -rf ${BACKUP_DIR}
+popd >/dev/null
+
+echo -e "Done."
+
+exit 0

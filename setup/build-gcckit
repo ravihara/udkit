@@ -1,0 +1,409 @@
+#!/bin/bash
+
+# Build script for compiling and installing Gcc
+#
+# First, install the following system packages based on the distribution of choice.
+#
+# For RHEL / RockyLinux machines:
+# dnf install -y flex bison expect m4 texinfo glibc-devel elfutils-devel rpm-devel
+#
+# For Debian / Ubuntu machines:
+# apt install -y flex bison expect m4 texinfo libelf-dev librpm-dev build-essential
+
+udk_show_banner() {
+  echo -e "====================================================="
+  echo -e $*
+  echo -e "====================================================="
+}
+
+udk_abort_with_err() {
+  echo -e $*
+  exit 1
+}
+
+udk_extract_archive() {
+  local dest_dir="$1"
+  local archive_file="$2"
+
+  case $archive_file in
+  *.tar.xz)
+    tar -xf "$archive_file" -C "$dest_dir"
+    ;;
+  *.tar.bz2)
+    tar -jxf "$archive_file" -C "$dest_dir"
+    ;;
+  *.tar.gz)
+    tar -zxf "$archive_file" -C "$dest_dir"
+    ;;
+  *.xz)
+    tar -xf "$archive_file" -C "$dest_dir"
+    ;;
+  *.bz2)
+    tar -jf "$archive_file" -C "$dest_dir"
+    ;;
+  *.gz)
+    tar -zf "$archive_file" -C "$dest_dir"
+    ;;
+  *.tar)
+    tar -xf "$archive_file" -C "$dest_dir"
+    ;;
+  *)
+    udk_abort_with_err "Don't know how to extract '$archive_file'"
+    ;;
+  esac
+}
+
+udk_gen_gcc_env_script() {
+  udk_show_banner "Creating Gcc environment activation script..."
+
+  cat <<ACTVBLK >${gcc_env_file}
+## 'source' this script to bring gcc-${gcc_version} into your environment
+export CC="${gcc_install_dir}/bin/gcc"
+export CXX="${gcc_install_dir}/bin/g++"
+
+export PATH="${gcc_install_dir}/bin:\$PATH"
+export LD_LIBRARY_PATH="${gcc_install_dir}/lib:${gcc_install_dir}/lib64:${gcc_install_dir}/libexec/annobin-plugin:\$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="${gcc_install_dir}/lib/pkgconfig:${gcc_install_dir}/lib64/pkgconfig:\$PKG_CONFIG_PATH"
+export MANPATH="${gcc_install_dir}/share/man:\$MANPATH"
+export INFOPATH="${gcc_install_dir}/share/info:\$INFOPATH"
+ACTVBLK
+}
+
+udk_build_install_gcc() {
+  local src_dir="${gcc_source_dir}"
+  local src_archive="${archives_dir}/gcc-${gcc_version}.tar.gz"
+  local major_version=$(echo $gcc_version | awk -F '.' '{print $1}')
+
+  if [ ! -r "${src_archive}" ]; then
+    udk_abort_with_err "Gcc source archive '${src_archive}' not accessible."
+  fi
+
+  if [ -d "${src_dir}" ]; then
+    udk_show_banner "Removing pre-existing Gcc source folder..."
+    rm -rf "$src_dir" && sync
+  fi
+
+  if [ -d "${gcc_install_dir}" ]; then
+    udk_show_banner "Removing pre-existing Gcc install folder..."
+    rm -rf "$gcc_install_dir" && sync
+  fi
+
+  udk_show_banner "Extracting the Gcc source archive..."
+  udk_extract_archive "${build_base}" "${src_archive}"
+
+  if [ ! -d "${src_dir}" ]; then
+    udk_abort_with_err "Expected Gcc source folder '${src_dir}' not created!"
+  fi
+
+  sync
+
+  udk_show_banner "Downloading the pre-requisites..."
+  pushd "$src_dir" >/dev/null
+  ./contrib/download_prerequisites && sync
+  popd >/dev/null
+
+  if [ -d "${gcc_build_dir}" ]; then
+    udk_show_banner "Removing pre-existing Gcc build folder..."
+    rm -rf "${gcc_build_dir}" && sync
+  fi
+
+  udk_show_banner "Creating the gcc build folder..."
+  mkdir "$gcc_build_dir"
+
+  pushd "$gcc_build_dir" >/dev/null
+
+  udk_show_banner "Configuring source code..."
+  ${src_dir}/configure \
+    --enable-bootstrap \
+    --enable-shared \
+    --enable-static \
+    --enable-threads=posix \
+    --enable-checking=release \
+    --disable-multilib \
+    --with-system-zlib \
+    --enable-__cxa_atexit \
+    --disable-libunwind-exceptions \
+    --enable-gnu-unique-object \
+    --enable-linker-build-id \
+    --with-gcc-major-version-only \
+    --with-linker-hash-style=gnu \
+    --enable-plugin \
+    --enable-initfini-array \
+    --enable-gnu-indirect-function \
+    --enable-cet \
+    --with-tune=generic \
+    --enable-languages=c,c++,fortran,lto \
+    --build="${gcc_target}" \
+    --target="${gcc_target}" \
+    --host="${gcc_target}" \
+    --with-pkgversion="${gcc_pkg_version}" \
+    --prefix="${gcc_install_dir}"
+
+  udk_show_banner "Building Gcc..."
+  sync && make -j$(getconf _NPROCESSORS_ONLN)
+
+  if [ "1x" == "${gcc_build_check}x" ]; then
+    udk_show_banner "Checking the Gcc build..."
+    sync && make check
+  fi
+
+  udk_show_banner "Installing the Gcc build..."
+  sync && make install && sync
+
+  for pre_req in gmp isl mpc mpfr; do
+    if [ -d "$pre_req" ]; then
+      pushd $pre_req >/dev/null
+      udk_show_banner "Installing '$pre_req' into '${gcc_install_dir}'..."
+      make install && sync
+      popd >/dev/null
+    fi
+  done
+
+  udk_gen_gcc_env_script
+
+  sync && udk_show_banner "Gcc - ${gcc_version} installed successfully at ${gcc_install_dir}"
+
+  popd >/dev/null
+}
+
+udk_build_install_binutils() {
+  if [ ! -f "${gcc_env_file}" ]; then
+    udk_abort_with_err "Gcc environment file '${gcc_env_file}' not found! Cannot build binutils."
+  fi
+
+  source "${gcc_env_file}"
+
+  local src_dir="${build_base}/binutils-${binutils_version}"
+  local src_archive="${archives_dir}/binutils-${binutils_version}.tar.gz"
+  local install_dir="${gcc_install_dir}"
+
+  if [ -d "$src_dir" ]; then
+    udk_show_banner "Removing pre-existing binutils source folder..."
+    rm -rf "$src_dir" && sync
+  fi
+
+  udk_show_banner "Extracting binutils source..."
+  udk_extract_archive "${build_base}" "${src_archive}"
+
+  if [ ! -d "$src_dir" ]; then
+    udk_abort_with_err "Expected binutils source folder '${src_dir}' not created!"
+  fi
+
+  pushd "$src_dir" >/dev/null
+
+  udk_show_banner "Configuring binutils source..."
+  ./configure \
+    --build="${gcc_target}" \
+    --target="${gcc_target}" \
+    --host="${gcc_target}" \
+    --enable-gold=yes \
+    --enable-ld=yes \
+    --enable-lto \
+    --enable-shared=yes \
+    --enable-static=yes \
+    --with-system-zlib \
+    --with-gcc-major-version-only \
+    --with-static-standard-libraries \
+    --prefix="${install_dir}"
+
+  udk_show_banner "Building binutils plugin..."
+  make && sync
+
+  udk_show_banner "Installing binutils plugin..."
+  make install && sync
+
+  udk_show_banner "binutils - ${binutils_version} installed successfully at ${install_dir}"
+
+  popd >/dev/null
+}
+
+udk_build_install_libdwarf() {
+  if [ ! -f "${gcc_env_file}" ]; then
+    udk_abort_with_err "Gcc environment file '${gcc_env_file}' not found! Cannot build libdwarf."
+  fi
+
+  source "${gcc_env_file}"
+
+  local src_dir="${build_base}/libdwarf-code-${libdwarf_version}"
+  local src_archive="${archives_dir}/libdwarf-code-${libdwarf_version}.tar.gz"
+  local install_dir="${libdwarf_install_dir}"
+
+  if [ -d "$src_dir" ]; then
+    udk_show_banner "Removing pre-existing libdwarf source folder..."
+    rm -rf "$src_dir" && sync
+  fi
+
+  udk_show_banner "Extracting libdwarf source..."
+  udk_extract_archive "${build_base}" "${src_archive}"
+
+  if [ ! -d "$src_dir" ]; then
+    udk_abort_with_err "Expected libdwarf source folder '${src_dir}' not created!"
+  fi
+
+  pushd "$src_dir" >/dev/null
+
+  udk_show_banner "Configuring libdwarf source..."
+  bash autogen.sh && sync
+  ./configure \
+    --enable-sanitize \
+    --enable-shared=yes \
+    --enable-static=yes \
+    --prefix="$install_dir"
+
+  udk_show_banner "Building libdwarf..."
+  make && sync
+
+  udk_show_banner "Installing libdwarf..."
+  make install && sync
+
+  udk_show_banner "libdwarf - ${libdwarf_version} installed successfully at ${install_dir}"
+
+  popd >/dev/null
+}
+
+udk_build_install_annobin() {
+  if [ ! -f "${gcc_env_file}" ]; then
+    udk_abort_with_err "Gcc environment file '${gcc_env_file}' not found! Cannot build annobin."
+  fi
+
+  if [ ! -d "${gcc_source_dir}/include" ]; then
+    udk_abort_with_err "Unable to find valid Gcc source folder '${gcc_source_dir}'."
+  fi
+
+  if [ ! -d "${gcc_build_dir}/libiberty" ]; then
+    udk_abort_with_err "Unable to find 'libiberty' dir in Gcc build folder '${gcc_build_dir}'."
+  fi
+
+  if [ ! -d "${libdwarf_install_dir}/include" ]; then
+    udk_abort_with_err "Unable to find valid libdwarf installation '${libdwarf_install_dir}'."
+  fi
+
+  source "${gcc_env_file}"
+
+  local src_dir="${build_base}/annobin-${annobin_version}"
+  local src_archive="${archives_dir}/annobin-${annobin_version}.tar.xz"
+  local plugin_dir="$(gcc -print-file-name=plugin)"
+
+  if [ ! -d "${plugin_dir}" ]; then
+    udk_abort_with_err "Gcc plugin fould not found! Please check your Gcc installation."
+  fi
+
+  if [ -d "$src_dir" ]; then
+    udk_show_banner "Removing pre-existing annobin source folder..."
+    rm -rf "$src_dir" && sync
+  fi
+
+  udk_show_banner "Extracting annobin source..."
+  udk_extract_archive "${build_base}" "${src_archive}"
+
+  if [ ! -d "$src_dir" ]; then
+    udk_abort_with_err "Expected annobin source folder '${src_dir}' not created!"
+  fi
+
+  pushd "$src_dir" >/dev/null
+
+  udk_show_banner "Configuring annobin source..."
+  export CFLAGS="-I${gcc_source_dir}/include -I${libdwarf_install_dir}/include -I${plugin_dir}/include"
+  export CXXFLAGS="$CFLAGS"
+  export LDFLAGS="-L${gcc_build_dir}/libiberty -L${libdwarf_install_dir}/lib"
+
+  ./configure \
+    --build="${gcc_target}" \
+    --target="${gcc_target}" \
+    --host="${gcc_target}" \
+    --enable-shared=yes \
+    --enable-static=yes \
+    --with-gcc-plugin-dir="$plugin_dir" \
+    --prefix="${gcc_install_dir}"
+
+  udk_show_banner "Building annobin plugin..."
+  make && sync
+
+  udk_show_banner "Installing annobin plugin..."
+  make install && sync
+
+  udk_show_banner "Creating symlink to Gcc plugin folder..."
+  ln -s ${gcc_install_dir}/libexec/annobin-plugin/annobin.* ${plugin_dir}/.
+
+  udk_show_banner "annobin-${annobin_version} installed into ${gcc_install_dir}"
+
+  popd >/dev/null
+}
+
+# Set script to abort on any command that results an error status
+trap 'udk_abort_with_err' 0
+set -e
+
+# Try to parse the command-line arguments.
+if [ $# -lt 1 ]; then
+  udk_abort_with_err "Usage: $(basename $0) <build-config-file>"
+fi
+
+build_conf_file="$1"
+
+if [ ! -s "${build_conf_file}" -o ! -r "${build_conf_file}" ]; then
+  udk_abort_with_err "Invalid or unreadable configuration file '${build_conf_file}'"
+fi
+
+## Load build settings by sourcing the configuration file (Ex., ele-gcckit.rc).
+source "${build_conf_file}"
+
+# Mandatory settings
+[[ -z "${archives_dir}" || ! -d "${archives_dir}" ]] && udk_abort_with_err "'archives_dir' is not-defined or, is not a directory. It should be a folder containing the source archives for gcc, libdwarf and annobin."
+[[ -z "${build_base}" || ! -d "${build_base}" ]] && udk_abort_with_err "'build_base' is not-defined or, is not a directory. It should be an absolute path to a local folder where, sources can be extracted and built."
+[[ -z "${install_base}" ]] && udk_abort_with_err "'install_base' is not-defined. It should be an absolute path to a custom base-folder to install the built artifacts."
+[[ -z "${gcc_version}" ]] && udk_abort_with_err "Version of gcc not provided."
+[[ -z "${binutils_version}" ]] && udk_abort_with_err "Version of binutils not provided."
+[[ -z "${libdwarf_version}" ]] && udk_abort_with_err "Version of libdwarf not provided."
+[[ -z "${annobin_version}" ]] && udk_abort_with_err "Version of annobin plugin not provided."
+
+# Optional settings
+gcc_target_name=${gcc_target_name:-"pc-linux-gnu"}
+gcc_pkg_version=${gcc_pkg_version:-"$(whoami)-$(date | awk '{print $3"-"$2"-"$6}')"}
+
+## Export script variables to be consumed in the functions
+export archives_dir build_base install_base
+export gcc_target_name gcc_pkg_version gcc_version
+export binutils_version libdwarf_version annobin_version
+
+export gcc_source_dir="${build_base}/gcc-${gcc_version}"
+export gcc_build_dir="${build_base}/gcc-build"
+export gcc_install_dir="${install_base}/root/usr"
+export gcc_env_file="${install_base}/enable"
+export gcc_target="$(arch)-${gcc_target_name}"
+
+export libdwarf_install_dir="${install_base}/root/usr"
+
+##### BEGIN: Workarounds for older gcc builds (Ex., 6.x) #####
+# 'annobin' configuration requires aclocal-1.15 and automake-1.15. So, try
+# to create a symlink accordingly. 'annobin' build will fail otherwise.
+if [ -z "$(which aclocal-1.15 2>/dev/null)" ]; then
+  ln -s /usr/bin/aclocal $HOME/.local/bin/aclocal-1.15
+fi
+
+if [ -z "$(which automake-1.15 2>/dev/null)" ]; then
+  ln -s /usr/bin/automake $HOME/.local/bin/automake-1.15
+fi
+##### END: Workarounds for older gcc builds #####
+
+# Step 1: Build and install gcc
+udk_build_install_gcc
+
+# Step 2: Build and install binutils
+udk_build_install_binutils
+
+# Step 3: Build and install libdwarf
+udk_build_install_libdwarf
+
+# Step 4: Install annobin plugin
+udk_build_install_annobin
+
+## Clean up exported variables
+unset archives_dir build_base install_base
+unset gcc_target_name gcc_pkg_version gcc_version
+unset binutils_version libdwarf_version annobin_version
+
+unset gcc_source_dir gcc_build_dir gcc_install_dir gcc_env_file gcc_target
+unset libdwarf_install_dir
+
+trap : 0

@@ -1,0 +1,12 @@
+#!/bin/bash -e
+# Script to remove all the dangling docker images in the system
+
+TO_BE_REMOVED=$(docker images -q --filter "dangling=true")
+
+if [ -n "${TO_BE_REMOVED}" ]; then
+  docker rmi ${TO_BE_REMOVED} && sync
+else
+  echo -e "No dangling docker images present"
+fi
+
+exit 0
