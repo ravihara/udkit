@@ -45,7 +45,7 @@ fi
 ## Android configuration
 if [ -d "$UDKIT_BASE/ide/android" ]; then
   export ANDROID_HOME="$UDKIT_BASE/ide/android"
-  export PATH="$ANDROID_HOME/bin:$PATH"
+  export PATH="$ANDROID_HOME/bin:$HOME/Android/Sdk/platform-tools:$PATH"
 fi
 
 ## direnv configuration - THIS MUST BE TO THE END ##
