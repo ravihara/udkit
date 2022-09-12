@@ -26,4 +26,4 @@ Follow the steps to setup the bash customizations by utilizing the `udkit`.
 
 ## Things to note
 
-The `udkit` internally configures [direnv](https://direnv.net/) utility. Hence, you can make use of `.envrc` file to simplify your per-folder environment configuration. You can also have a default .envrc file in your _HOME_ folder with default environment (Ex., Default version of OpenJDK, Golang, Node.js and so on).
+The `udkit` internally configures [direnv](https://direnv.net/) utility. Hence, you can make use of `.envrc` file to simplify your per-folder environment configuration. You can also have a default .envrc file in your _HOME_ folder with default environment (Ex., default version of _OpenJDK_, _Golang_, _Node.js_ and so on).
