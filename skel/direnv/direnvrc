@@ -1,0 +1,66 @@
+direnv_version 2.32.1
+
+## Handle nodejs version
+if [ -d "$UDKIT_BASE/sdk/nodejs" ]; then
+  use_nodejs() {
+    local prog_dir=$UDKIT_BASE/sdk/nodejs/$1
+    load_prefix $prog_dir
+    layout node
+  }
+fi
+
+## Handle golang version
+if [ -d "$UDKIT_BASE/sdk/golang" ]; then
+  use_golang() {
+    local prog_dir=$UDKIT_BASE/sdk/golang/$1
+    load_prefix $prog_dir
+    export GOPATH=$prog_dir
+  }
+fi
+
+## Handle python version
+use_python() {
+  local default_dir=$UDKIT_BASE/sdk/python/3.9
+  local prog_dir=$UDKIT_BASE/sdk/python/$1
+
+  ## Try to put default python in environment so that,
+  ## tools such as 'pants' work without explicit .envrc
+  if [ -d "$default_dir" ] && [ -z "$(echo $prog_dir | grep -v grep | grep $default_dir)" ]; then
+    load_prefix $default_dir
+  fi
+
+  if [ -d "$prog_dir" ]; then
+    load_prefix $prog_dir
+    layout python python$1
+  elif [ -n "$(which python$1 2>/dev/null)" ]; then
+    layout python python$1
+  fi
+}
+
+## Handle openjdk version
+if [ -d "$UDKIT_BASE/sdk/openjdk" ]; then
+  use_openjdk() {
+    local prog_dir=$UDKIT_BASE/sdk/openjdk/$1
+    load_prefix $prog_dir
+    unset JAVA_VERSION
+    export JAVA_HOME=$prog_dir
+  }
+fi
+
+## Handle gradle version
+if [ -d "$UDKIT_BASE/util/gradle" ]; then
+  use_gradle() {
+    local prog_dir=$UDKIT_BASE/util/gradle/$1
+    load_prefix $prog_dir
+    export GRADLE_HOME=$prog_dir
+  }
+fi
+
+## Handle maven version
+if [ -d "$UDKIT_BASE/util/maven" ]; then
+  use_maven() {
+    local prog_dir=$UDKIT_BASE/util/maven/$1
+    load_prefix $prog_dir
+    export M2_HOME=$prog_dir
+  }
+fi

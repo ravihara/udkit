@@ -1,0 +1,9 @@
+[global]
+bash_path = "/bin/bash"
+disable_stdin = true
+strict_env = true
+warn_timeout = "10s"
+
+[whitelist]
+#prefix = ["<dir-paths-to-allow-direnv>"]
+#exact = ["<paths-to-allow-direnv>/.envrc"]

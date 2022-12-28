@@ -44,6 +44,9 @@ normalize_build_env() {
 ################# udk custom package settings ###################
 #################################################################
 
+## udk bin utilities
+export PATH="$UDKIT_BASE/bin:$PATH"
+
 ## Golang configuration
 if [ -d "$UDKIT_BASE/sdk/golang" ]; then
   export GOPATH="$UDKIT_BASE/sdk/golang/1.19"
