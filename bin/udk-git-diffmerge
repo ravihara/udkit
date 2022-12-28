@@ -1,22 +1,20 @@
 #!/bin/bash
 # Git merge script - If 'meld' is installed and available in the path,
 # it will be used as the git difftool. Otherwise, 'vimdiff' will be used.
-#
-# This script acts as a wrapper for udk-git-difftool too.
 
-MERGE_TOOL=$(which meld)
+GIT_TOOL=$(which meld 2>/dev/null)
 
-if [ -z "$MERGE_TOOL" ]; then
-	MERGE_TOOL=$(which vimdiff)
+if [ -z "$GIT_TOOL" ]; then
+	GIT_TOOL=$(which vimdiff)
 
-	if [ -z "$MERGE_TOOL" ]; then
+	if [ -z "$GIT_TOOL" ]; then
 		echo "Could not find either meld or vimdiff for use with git!"
 		exit 1
 	fi
 
 	# Use 'vimdiff' as the mergetool
-	$MERGE_TOOL $* <$(tty) >$(tty)
+	$GIT_TOOL $* <$(tty) >$(tty)
 else
 	# 'meld' is available so, use it
-	$MERGE_TOOL $*
+	$GIT_TOOL $*
 fi
