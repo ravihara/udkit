@@ -1,66 +1,112 @@
 direnv_version 2.32.1
 
 ## Handle nodejs version
-if [ -d "$UDKIT_BASE/sdk/nodejs" ]; then
-  use_nodejs() {
-    local prog_dir=$UDKIT_BASE/sdk/nodejs/$1
-    load_prefix $prog_dir
-    layout node
-  }
-fi
+use_nodejs() {
+  local udk_version=${1:-lts}
+  local udk_basedir="$UDKIT_BASE/sdk/nodejs"
 
-## Handle golang version
-if [ -d "$UDKIT_BASE/sdk/golang" ]; then
-  use_golang() {
-    local prog_dir=$UDKIT_BASE/sdk/golang/$1
-    load_prefix $prog_dir
-    export GOPATH=$prog_dir
-  }
-fi
-
-## Handle python version
-use_python() {
-  local default_dir=$UDKIT_BASE/sdk/python/3.9
-  local prog_dir=$UDKIT_BASE/sdk/python/$1
-
-  ## Try to put default python in environment so that,
-  ## tools such as 'pants' work without explicit .envrc
-  if [ -d "$default_dir" ] && [ -z "$(echo $prog_dir | grep -v grep | grep $default_dir)" ]; then
-    load_prefix $default_dir
-  fi
+  local prog_dir="$udk_basedir/$udk_version"
+  local sys_prog="$(which npm 2>/dev/null)"
 
   if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
-    layout python python$1
-  elif [ -n "$(which python$1 2>/dev/null)" ]; then
-    layout python python$1
+    layout node
+  elif [ -n "$sys_prog" ]; then
+    layout node
+  fi
+}
+
+## Handle golang version
+use_golang() {
+  local udk_version=${1:-1.19}
+  local udk_basedir="$UDKIT_BASE/sdk/golang"
+
+  local prog_dir="$udk_basedir/$udk_version"
+  local sys_prog="$(which go 2>/dev/null)"
+
+  if [ -d "$prog_dir" ]; then
+    load_prefix $prog_dir
+    export GOPATH=$prog_dir
+  elif [ -n "$sys_prog" ]; then
+    export GOPATH=$(dirname $syslog)
+  fi
+}
+
+## Handle python version
+use_python() {
+  local udk_version=${1:-3.10}
+  local udk_basedir="$UDKIT_BASE/sdk/python"
+
+  local prog_dir="$udk_basedir/$udk_version"
+  local sys_prog="$(which python$udk_version 2>/dev/null)"
+
+  ## This is mainly to make 'pantsbuild' (https://github.com/pantsbuild/pants) work.
+  local pants_pyver=3.9
+  local pants_pydir="$udk_basedir/$pants_pyver"
+  local sys_pants_py="$(which python$pants_pyver 2>/dev/null)"
+
+  if [ -d "$pants_pydir" ] && [ -z "$(echo $udk_version | grep -v grep | grep $pants_pyver)" ]; then
+    load_prefix $pants_pydir
+  elif [ -n "$sys_pants_py" ]; then
+    layout python python$pants_pyver
+  fi
+
+  ## Now, load the requested python version
+  if [ -d "$prog_dir" ]; then
+    load_prefix $prog_dir
+    layout python python$udk_version
+  elif [ -n "$sys_prog" ]; then
+    layout python python$udk_version
   fi
 }
 
 ## Handle openjdk version
-if [ -d "$UDKIT_BASE/sdk/openjdk" ]; then
-  use_openjdk() {
-    local prog_dir=$UDKIT_BASE/sdk/openjdk/$1
+use_openjdk() {
+  local udk_version=${1:-17}
+  local udk_basedir="$UDKIT_BASE/sdk/openjdk"
+
+  local prog_dir="$udk_basedir/$udk_version"
+  local sys_jvm="$(ls -l /etc/alternatives/java | awk {'print $11'} | sed -e 's|/bin/java||' 2>/dev/null)"
+
+  if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
     unset JAVA_VERSION
     export JAVA_HOME=$prog_dir
-  }
-fi
+  elif [ -n "$sys_jvm" ]; then
+    load_prefix $sys_jvm
+    unset JAVA_VERSION
+    export JAVA_HOME=$sys_jvm
+  fi
+}
 
 ## Handle gradle version
-if [ -d "$UDKIT_BASE/util/gradle" ]; then
-  use_gradle() {
-    local prog_dir=$UDKIT_BASE/util/gradle/$1
+use_gradle() {
+  local udk_version=${1:-7.5}
+  local udk_basedir="$UDKIT_BASE/util/gradle"
+
+  local prog_dir="$udk_basedir/$udk_version"
+  local sys_prog="$(which gradle 2>/dev/null)"
+
+  if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
     export GRADLE_HOME=$prog_dir
-  }
-fi
+  elif [ -n "$sys_prog" ]; then
+    export GRADLE_HOME=$(dirname $sys_prog)
+  fi
+}
 
 ## Handle maven version
-if [ -d "$UDKIT_BASE/util/maven" ]; then
-  use_maven() {
-    local prog_dir=$UDKIT_BASE/util/maven/$1
+use_maven() {
+  local udk_version=${1:-3.8}
+  local udk_basedir="$UDKIT_BASE/util/maven"
+
+  local prog_dir="$udk_basedir/$udk_version"
+  local sys_prog="$(which mvn 2>/dev/null)"
+
+  if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
     export M2_HOME=$prog_dir
-  }
-fi
+  elif [ -n "$sys_prog" ]; then
+    export M2_HOME=$(dirname $sys_prog)
+  fi
+}

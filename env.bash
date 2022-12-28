@@ -6,10 +6,6 @@ export UDKIT_BASE=$HOME/.udkit
 export TRML_HL='\033[1;35m'
 export TRML_NC='\033[0m'
 
-#################################################################
-################## udk custom bash functions ####################
-#################################################################
-
 ## Array to string conversion with given separator
 join_list_items_by() {
   local d=${1-} f=${2-}
@@ -40,31 +36,15 @@ normalize_build_env() {
   unset path_parts
 }
 
-#################################################################
-################# udk custom package settings ###################
-#################################################################
-
 ## udk bin utilities
 export PATH="$UDKIT_BASE/bin:$PATH"
 
-## Golang configuration
-if [ -d "$UDKIT_BASE/sdk/golang" ]; then
-  export GOPATH="$UDKIT_BASE/sdk/golang/1.19"
-  export PATH="$GOPATH/bin:$PATH"
-fi
+#########################################################
+################# udk custom settings ###################
+#########################################################
 
-## Android configuration
-if [ -d "$UDKIT_BASE/ide/android" ]; then
-  export ANDROID_HOME="$UDKIT_BASE/ide/android"
-  export PATH="$ANDROID_HOME/bin:$HOME/Android/Sdk/platform-tools:$PATH"
-fi
-
-## aws-cli with bash autocomplete
-if [ -n "$(which aws_completer)" ]; then
-  complete -C $(which aws_completer) aws
-fi
-
-## direnv configuration - THIS MUST BE TO THE END ##
+######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
+### direnv configuration - This should be at the end ###
 if [ -n "$(which direnv)" ]; then
   export DIRENV_LOG_FORMAT=""
   eval "$(direnv hook bash)"
