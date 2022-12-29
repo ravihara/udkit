@@ -66,7 +66,7 @@ use_openjdk() {
   local udk_basedir="$UDKIT_BASE/sdk/openjdk"
 
   local prog_dir="$udk_basedir/$udk_version"
-  local sys_jvm="$(ls -l /etc/alternatives/java | awk {'print $11'} | sed -e 's|/bin/java||' 2>/dev/null)"
+  local sys_jvm="$(test -e /etc/alternatives/java && ls -l /etc/alternatives/java | awk {'print $11'} | sed -e 's|/bin/java||' 2>/dev/null)"
 
   if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
