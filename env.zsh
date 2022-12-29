@@ -1,5 +1,8 @@
 #!/bin/zsh
 
+## Set more optimal max-file limits
+ulimit -n 10240
+
 export UDKIT_BASE=$HOME/.udkit
 
 ## Set line coloring
