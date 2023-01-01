@@ -37,7 +37,7 @@ normalize_build_env() {
 }
 
 ## Setup default versions of SDKs and Utils
-[[ -d "$UDKIT_BASE/sdk/python/3.10" ]] && PATH="$UDKIT_BASE/sdk/python/3.10/bin:$PATH"
+[[ -d "$UDKIT_BASE/sdk/python/3.11" ]] && PATH="$UDKIT_BASE/sdk/python/3.11/bin:$PATH"
 [[ -d "$UDKIT_BASE/sdk/openjdk/17" ]] && PATH="$UDKIT_BASE/sdk/openjdk/17/bin:$PATH"
 [[ -d "$UDKIT_BASE/sdk/nodejs/lts" ]] && PATH="$UDKIT_BASE/sdk/nodejs/lts/bin:$PATH"
 [[ -d "$UDKIT_BASE/sdk/golang/1.19" ]] && PATH="$UDKIT_BASE/sdk/golang/1.19/bin:$PATH"
