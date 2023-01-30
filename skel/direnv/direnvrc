@@ -32,36 +32,6 @@ use_golang() {
   fi
 }
 
-## Handle python version
-use_python() {
-  local udk_version=${1:-3.11}
-  local udk_basedir="$UDKIT_BASE/sdk/python"
-
-  local prog_dir="$udk_basedir/$udk_version"
-  local sys_prog="$(which python$udk_version 2>/dev/null)"
-
-  ## This is mainly to make 'pantsbuild' (https://github.com/pantsbuild/pants) work.
-  local pants_pyver=3.9
-  local pants_pydir="$udk_basedir/$pants_pyver"
-  local sys_pants_py="$(which python$pants_pyver 2>/dev/null)"
-
-  if [ -z "$(echo $udk_version | grep -v grep | grep $pants_pyver)" ]; then
-    if [ -d "$pants_pydir" ]; then
-      load_prefix $pants_pydir
-    elif [ -n "$sys_pants_py" ]; then
-      layout python python$pants_pyver
-    fi
-  fi
-
-  ## Now, load the requested python version
-  if [ -d "$prog_dir" ]; then
-    load_prefix $prog_dir
-    layout python python$udk_version
-  elif [ -n "$sys_prog" ]; then
-    layout python python$udk_version
-  fi
-}
-
 ## Handle openjdk version
 use_openjdk() {
   local udk_version=${1:-17}
