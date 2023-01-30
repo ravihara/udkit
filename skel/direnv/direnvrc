@@ -1,4 +1,4 @@
-direnv_version 2.32.1
+direnv_version 2.32.2
 
 ## Handle nodejs version
 use_nodejs() {
@@ -34,7 +34,7 @@ use_golang() {
 
 ## Handle python version
 use_python() {
-  local udk_version=${1:-3.10}
+  local udk_version=${1:-3.11}
   local udk_basedir="$UDKIT_BASE/sdk/python"
 
   local prog_dir="$udk_basedir/$udk_version"
@@ -45,10 +45,12 @@ use_python() {
   local pants_pydir="$udk_basedir/$pants_pyver"
   local sys_pants_py="$(which python$pants_pyver 2>/dev/null)"
 
-  if [ -d "$pants_pydir" ] && [ -z "$(echo $udk_version | grep -v grep | grep $pants_pyver)" ]; then
-    load_prefix $pants_pydir
-  elif [ -n "$sys_pants_py" ]; then
-    layout python python$pants_pyver
+  if [ -z "$(echo $udk_version | grep -v grep | grep $pants_pyver)" ]; then
+    if [ -d "$pants_pydir" ]; then
+      load_prefix $pants_pydir
+    elif [ -n "$sys_pants_py" ]; then
+      layout python python$pants_pyver
+    fi
   fi
 
   ## Now, load the requested python version
@@ -81,7 +83,7 @@ use_openjdk() {
 
 ## Handle gradle version
 use_gradle() {
-  local udk_version=${1:-7.5}
+  local udk_version=${1:-7.6}
   local udk_basedir="$UDKIT_BASE/util/gradle"
 
   local prog_dir="$udk_basedir/$udk_version"
