@@ -36,15 +36,6 @@ normalize_build_env() {
   unset path_parts
 }
 
-## Setup default versions of SDKs and Utils
-[[ -d "$UDKIT_BASE/sdk/grive/0.5.3" ]] && PATH="$UDKIT_BASE/sdk/grive/0.5.3/bin:$PATH"
-[[ -d "$UDKIT_BASE/sdk/openjdk/17" ]] && PATH="$UDKIT_BASE/sdk/openjdk/17/bin:$PATH"
-[[ -d "$UDKIT_BASE/sdk/nodejs/lts" ]] && PATH="$UDKIT_BASE/sdk/nodejs/lts/bin:$PATH"
-[[ -d "$UDKIT_BASE/sdk/golang/1.19" ]] && PATH="$UDKIT_BASE/sdk/golang/1.19/bin:$PATH"
-
-[[ -d "$UDKIT_BASE/util/maven/3.8" ]] && PATH="$UDKIT_BASE/util/maven/3.8/bin:$PATH"
-[[ -d "$UDKIT_BASE/util/gradle/7.6" ]] && PATH="$UDKIT_BASE/util/gradle/7.6/bin:$PATH"
-
 export PATH="$UDKIT_BASE/bin:$PATH"
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
