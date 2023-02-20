@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST_PYVER=3.11.2
+LATEST_PYVER=3.10.10
 
 ## Install core dependencies
 sudo apt update -y && apt upgrade -y
@@ -16,6 +16,14 @@ sudo apt autoremove --purge -y && sudo apt clean && sudo dpkg --configure -a
 
 ## Install pyenv
 curl https://pyenv.run | bash
+
+## Pyenv configuration
+if [ -z "$(which pyenv 2>/dev/null)" ]; then
+    export PATH="$HOME/.pyenv/bin:$PATH"
+
+    eval "$(pyenv init -)"
+    eval "$(pyenv virtualenv-init -)"
+fi
 
 ## Install latest python3
 pyenv install $LATEST_PYVER && sync && pyenv global $LATEST_PYVER
