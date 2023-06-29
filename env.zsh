@@ -36,6 +36,10 @@ normalize_build_env() {
   unset path_parts
 }
 
+if [ -d "$UDKIT_BASE/ide/idea-ic" ]; then
+  export PATH="$UDKIT_BASE/ide/idea-ic/bin:$PATH"
+fi
+
 export PATH="$UDKIT_BASE/bin:$PATH"
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
