@@ -1,5 +1,27 @@
 direnv_version 2.32.2
 
+## Handle python version (using pyenv)
+layout_pyprojenv() {
+  local py_version=${1:-3.11}
+  local py_envname=${2:-mypy}
+
+  if [ -z "$(which pyenv 2>/dev/null)" ]; then
+    echo "Unable to find 'pyenv' command. Please check the installation or PATH"
+    return
+  fi
+
+  local req_env="${py_envname}-${py_version}"
+
+  if [ -z "$(pyenv virtualenvs | grep -v grep | grep -E "\b${req_env}\b")" ]; then
+    rm -f .python-version
+    pyenv virtualenv --quiet ${py_version} ${req_env} >/dev/null 2>&1
+  fi
+
+  if [ ! -e .python-version ] || [ -z "$(cat .python-version | grep -v grep | grep -E "\b${req_env}\b")" ]; then
+    echo $req_env >.python-version
+  fi
+}
+
 ## Handle nodejs version
 use_nodejs() {
   local udk_version=${1:-lts}
@@ -18,7 +40,7 @@ use_nodejs() {
 
 ## Handle golang version
 use_golang() {
-  local udk_version=${1:-1.19}
+  local udk_version=${1:-1.20}
   local udk_basedir="$UDKIT_BASE/sdk/golang"
 
   local prog_dir="$udk_basedir/$udk_version"
