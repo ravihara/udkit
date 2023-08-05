@@ -1,4 +1,4 @@
-direnv_version 2.32.2
+direnv_version 2.32.3
 
 ## Handle python version (using pyenv)
 layout_pyprojenv() {
@@ -48,9 +48,9 @@ use_golang() {
 
   if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
-    export GOPATH=$prog_dir
+    export GOROOT=$prog_dir
   elif [ -n "$sys_prog" ]; then
-    export GOPATH=$(dirname $syslog)
+    export GOROOT=$(dirname $(dirname $syslog))
   fi
 }
 
@@ -75,7 +75,7 @@ use_openjdk() {
 
 ## Handle gradle version
 use_gradle() {
-  local udk_version=${1:-7.6}
+  local udk_version=${1:-8.2}
   local udk_basedir="$UDKIT_BASE/util/gradle"
 
   local prog_dir="$udk_basedir/$udk_version"
@@ -85,13 +85,13 @@ use_gradle() {
     load_prefix $prog_dir
     export GRADLE_HOME=$prog_dir
   elif [ -n "$sys_prog" ]; then
-    export GRADLE_HOME=$(dirname $sys_prog)
+    export GRADLE_HOME=$(dirname $(dirname $sys_prog))
   fi
 }
 
 ## Handle maven version
 use_maven() {
-  local udk_version=${1:-3.8}
+  local udk_version=${1:-3.9}
   local udk_basedir="$UDKIT_BASE/util/maven"
 
   local prog_dir="$udk_basedir/$udk_version"
@@ -101,6 +101,6 @@ use_maven() {
     load_prefix $prog_dir
     export M2_HOME=$prog_dir
   elif [ -n "$sys_prog" ]; then
-    export M2_HOME=$(dirname $sys_prog)
+    export M2_HOME=$(dirname $(dirname $sys_prog))
   fi
 }
