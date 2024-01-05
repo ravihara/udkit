@@ -1,4 +1,4 @@
-direnv_version 2.32.3
+direnv_version 2.33.0
 
 ## Handle python version (using pyenv)
 layout_pyprojenv() {
@@ -49,8 +49,10 @@ use_golang() {
   if [ -d "$prog_dir" ]; then
     load_prefix $prog_dir
     export GOROOT=$prog_dir
+    export GOPATH=${udk_basedir}/ext
   elif [ -n "$sys_prog" ]; then
     export GOROOT=$(dirname $(dirname $syslog))
+    export GOPATH=${udk_basedir}/ext
   fi
 }
 

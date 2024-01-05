@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST_PYVER=${1:-3.10.10}
+LATEST_PYVER=${1:-3.12.1}
 
 ## Install core dependencies
 sudo apt update -y && sudo apt upgrade -y
