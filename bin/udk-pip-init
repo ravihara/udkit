@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo "Upgrading pip version... "
+python -m pip install -U --upgrade pip
+
+echo "Installing keyring packages... "
+python -m pip install -U keyring artifacts-keyring
+
+echo "All done."

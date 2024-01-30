@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST_PYVER=${1:-3.12.1}
+LATEST_PYVER=${1:-3.11.7}
 
 ## Install core dependencies
 sudo apt update -y && sudo apt upgrade -y
@@ -10,7 +10,7 @@ sudo apt install -y build-essential g++ make automake autoconf libtool intltool 
 
 ## Install python dependencies
 sudo apt -y install zlib1g-dev build-essential libgdbm-dev libncurses5-dev libssl-dev libnss3-dev \
-  libffi-dev libreadline-dev wget libsqlite3-dev libbz2-dev uuid-dev liblzma-dev
+  libffi-dev libreadline-dev wget libsqlite3-dev libbz2-dev uuid-dev liblzma-dev libtk-img-dev
 
 ## Cleanup apt packages
 sudo apt autoremove --purge -y && sudo apt clean && sudo dpkg --configure -a
@@ -19,29 +19,30 @@ sudo apt autoremove --purge -y && sudo apt clean && sudo dpkg --configure -a
 if [ -z "$(which pyenv 2>/dev/null)" ]; then
   curl https://pyenv.run | bash
 
-  export PATH="$HOME/.pyenv/bin:$PATH"
+  export PATH="${HOME}/.pyenv/bin:$PATH"
   eval "$(pyenv init -)"
   eval "$(pyenv virtualenv-init -)"
 else
-  echo -e "pyenv is already installed, skipping it."
+  echo -e "pyenv is already installed, trying to update it..."
+  pyenv update && sync
 fi
 
 ## Install latest python3
-if [ -z "$(pyenv versions | grep -v grep | grep "$LATEST_PYVER")" ]; then
-  pyenv install $LATEST_PYVER && sync
+if [ -z "$(pyenv versions | grep -v grep | grep "${LATEST_PYVER}")" ]; then
+  pyenv install ${LATEST_PYVER} && sync
 else
   echo -e "python-${LATEST_PYVER} is already installed, skipping it."
 fi
 
 ## Set global python version
-pyenv global $LATEST_PYVER && sync && cd $(pwd)
+pyenv global ${LATEST_PYVER} && sync && cd $(pwd)
 
 ## Install poetry
-if [ -n "$(which poetry 2>/dev/null)" ]; then
-  curl -sSL https://install.python-poetry.org | python3 - --uninstall
+if [ -z "$(which poetry 2>/dev/null)" ]; then
+  curl -sSL https://install.python-poetry.org | python3 -
+else
+  echo -e "python-poetry already installed, trying to update it..."
+  poetry self update
 fi
 
-curl -sSL https://install.python-poetry.org | python3 -
-
 echo "All Done."
-
