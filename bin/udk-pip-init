@@ -1,7 +1,7 @@
 #!/bin/bash
 
-echo "Upgrading pip version... "
-python -m pip install -U --upgrade pip
+echo "Refreshing python tools... "
+python -m pip install -U --upgrade wheel setuptools pybind11 pip
 
 echo "Installing keyring packages... "
 python -m pip install -U keyring artifacts-keyring
