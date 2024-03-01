@@ -1,16 +1,14 @@
 #!/bin/bash
 
-LATEST_PYVER=${1:-3.11.7}
+LATEST_PYVER=${1:-3.11.8}
 
-## Install core dependencies
-sudo apt update -y && sudo apt upgrade -y
-sudo apt install -y build-essential g++ make automake autoconf libtool intltool colormake cmake pkg-config \
-  fontconfig curl rsync wget htop jq tree git bzip2 zip unzip net-tools vim universal-ctags gpg xfonts-utils \
-  apt-transport-https
-
-## Install python dependencies
-sudo apt -y install zlib1g-dev build-essential libgdbm-dev libncurses5-dev libssl-dev libnss3-dev \
-  libffi-dev libreadline-dev wget libsqlite3-dev libbz2-dev uuid-dev liblzma-dev libtk-img-dev
+## Install system dependencies
+sudo apt update -y && sudo apt dist-upgrade -y
+sudo apt install -y fontconfig curl rsync wget htop jq tree git bzip2 zip unzip net-tools vim universal-ctags \
+  gpg xfonts-utils apt-transport-https locales tzdata libcap2-bin procps iproute2 nano xz-utils build-essential \
+  make automake autoconf libtool intltool cmake pkg-config swig libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+  libsqlite3-dev libncursesw5-dev tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev libgdbm-dev libnss3-dev \
+  uuid-dev && sync
 
 ## Cleanup apt packages
 sudo apt autoremove --purge -y && sudo apt clean && sudo dpkg --configure -a
@@ -35,7 +33,9 @@ else
 fi
 
 ## Set global python version
-pyenv global ${LATEST_PYVER} && sync && cd $(pwd)
+pyenv rehash
+pyenv global ${LATEST_PYVER} && sync
+python3 -m pip install -U --upgrade wheel setuptools pybind11 pip
 
 ## Install poetry
 if [ -z "$(which poetry 2>/dev/null)" ]; then
