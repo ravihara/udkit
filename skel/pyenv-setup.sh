@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST_PYVER=${1:-3.11.8}
+LATEST_PYVER=${1:-3.11.9}
 
 ## Install system dependencies
 sudo apt update -y && sudo apt dist-upgrade -y

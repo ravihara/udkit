@@ -1,4 +1,4 @@
-direnv_version 2.33.0
+direnv_version 2.34.0
 
 ## Handle python version (using pyenv)
 layout_pyprojenv() {
@@ -40,7 +40,7 @@ use_nodejs() {
 
 ## Handle golang version
 use_golang() {
-  local udk_version=${1:-1.21}
+  local udk_version=${1:-1.22}
   local udk_basedir="$UDKIT_BASE/sdk/golang"
 
   local prog_dir="$udk_basedir/$udk_version"
