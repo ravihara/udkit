@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "Refreshing python tools... "
-python -m pip install -U --upgrade wheel setuptools pybind11 pip
+python -m pip install -U --upgrade wheel setuptools pybind11 pip nox invoke
 
 echo "Installing keyring packages... "
 python -m pip install -U keyring artifacts-keyring

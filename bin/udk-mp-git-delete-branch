@@ -25,8 +25,10 @@ if [ "x" != "x$2" ] && [ "$2" == "remote" -o "$2" == "both" ]; then
 fi
 
 ## Check for mandatory branches
-if [ "$TARGET_BRANCH" == "master" ] || [ "$TARGET_BRANCH" == "develop" ]; then
-  echo -e "Sorry!! Cannot delete mandatory branch '$TARGET_BRANCH' from repo. Please contact Github administrator."
+if [ "$TARGET_BRANCH" =~ ^feature\/.* ] || [ "$TARGET_BRANCH" =~ ^bugfix\/.* ] || [ "$TARGET_BRANCH" =~ ^hotfix\/.* ]; then
+  echo -e "The branch '$TARGET_BRANCH' does not look like a mandatory branch (ex., main|master|qa|dev|...), will try deleting it"
+else
+  echo -e "Sorry!! Cannot delete the mandatory branch '$TARGET_BRANCH' from repo. Please contact the repo administrator."
   exit 2
 fi
 

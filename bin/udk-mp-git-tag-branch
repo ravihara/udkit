@@ -21,7 +21,7 @@ for repo in $PROJ_REPOS; do
 
     echo ""
     echo -e "${TRML_HL}###### Tagging '${current_branch}' branch for '$repo' ######${TRML_NC}"
-    git tag -a "$TAG_VERSION" -m "Repocid release version - $TAG_VERSION"
+    git tag -a "$TAG_VERSION" -m "Repo - $repo; Release - $TAG_VERSION"
     sync && git push origin --tags
 
     popd >/dev/null
