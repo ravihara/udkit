@@ -45,36 +45,6 @@ if [ -x "$HOME/.pyenv/bin/pyenv" ]; then
   eval "$(pyenv virtualenv-init -)"
 fi
 
-## Array to string conversion with given separator
-join_list_items_by() {
-  local d=${1-} f=${2-}
-  if shift 2; then
-    printf %s "$f" "${@/#/$d}"
-  fi
-}
-
-## Normalize build related environment variables
-normalize_build_env() {
-  local path_parts=$(echo $LD_LIBRARY_PATH | tr ":" "\n" | sort | uniq)
-  path_parts=$(join_list_items_by ':' ${path_parts[@]})
-  export LD_LIBRARY_PATH="$path_parts"
-
-  path_parts=$(echo $PKG_CONFIG_PATH | tr ":" "\n" | sort | uniq)
-  path_parts=$(join_list_items_by ':' ${path_parts[@]})
-  export PKG_CONFIG_PATH="$path_parts"
-
-  path_parts=$(echo $CPATH | tr ":" "\n" | sort | uniq)
-  path_parts=$(join_list_items_by ':' ${path_parts[@]})
-  export CPATH="$path_parts"
-
-  path_parts=$(echo $PATH | tr ":" "\n" | sort | uniq)
-  path_parts=$(join_list_items_by ':' ${path_parts[@]})
-  path_parts="$(echo $path_parts | sed -e 's|^/bin:||')"
-  export PATH="${path_parts}:/bin"
-
-  unset path_parts
-}
-
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
 ### direnv configuration - This should be at the end ###
 if [ -n "$(command -v direnv 2>/dev/null)" ]; then

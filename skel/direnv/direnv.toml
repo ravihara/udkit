@@ -5,5 +5,5 @@ strict_env = true
 warn_timeout = "10s"
 
 [whitelist]
-#prefix = ["<dir-paths-to-allow-direnv>"]
-#exact = ["<paths-to-allow-direnv>/.envrc"]
+prefix = ["~/Work", "~/Temp", "~/Projects"]
+exact = ["~/.envrc"]

@@ -2,15 +2,7 @@
 
 REQ_PYVER=${1:-3.11.11}
 
-# Function to print messages
-echo_info() {
-  echo -e "\e[34m[INFO]\e[0m $1"
-}
-
-echo_error() {
-  echo -e "\e[31m[ERROR]\e[0m $1"
-  exit 1
-}
+source ~/.udkit/funcs.bash
 
 # Check if running as root
 if [ "$EUID" -eq 0 ]; then

@@ -1,114 +1,148 @@
 #!/bin/bash -e
 
-# Function to download OpenJDK Temurin
-download_openjdk() {
-    local version="$1"
-    local architecture="$2"
-    local os="linux" # Default to Linux, update if needed (e.g., "mac" for macOS)
-    local base_url="https://api.adoptium.net/v3/binary/latest"
+source ~/.udkit/funcs.bash
 
-    if [[ -z "$version" || -z "$architecture" ]]; then
-        echo "Usage: download_temurin <version> <architecture>"
-        echo "Example: download_temurin 17 x64"
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+    echo_error "Do not run this script as root or with sudo."
+fi
+
+# Function to download OpenJDK Temurin
+download_temurin() {
+    local version=$1
+    if [[ -z $version ]]; then
+        echo "Usage: download_temurin <version>"
         return 1
     fi
 
+    # Detect OS and architecture
+    local os=""
+    local arch=""
+
+    case "$(uname -s)" in
+    Linux) os="linux" ;;
+    Darwin) os="mac" ;;
+    *)
+        echo "Unsupported OS: $(uname -s)"
+        return 1
+        ;;
+    esac
+
+    case "$(uname -m)" in
+    x86_64) arch="x64" ;;
+    aarch64 | arm64) arch="aarch64" ;;
+    *)
+        echo "Unsupported architecture: $(uname -m)"
+        return 1
+        ;;
+    esac
+
     # Construct the download URL
-    local url="${base_url}/${version}/ga/${os}/${architecture}/jdk/hotspot/normal/adoptium"
+    local base_url="https://api.adoptium.net/v3/binary/latest"
+    local package_type="jdk"
+    local jvm_impl="hotspot"
+    local url="${base_url}/${version}/ga/${os}/${arch}/$package_type/${jvm_impl}/normal/adoptium"
+    local outfile="temurin-${version}-${os}-${arch}.tar.gz"
 
-    # Define the output file
-    local output_file="OpenJDK-Temurin-${version}-${architecture}.tar.gz"
+    # Download the JDK
+    echo_info "Downloading Temurin JDK version ${version} for ${os}-${arch}..."
+    curl -o "${outfile}" -L "${url}" || {
+        echo "Failed to download from ${url}"
+        return 1
+    }
 
-    echo "Downloading OpenJDK Temurin version ${version} for ${architecture} architecture..."
-    curl -L -o "${output_file}" "${url}"
-
-    if [[ $? -eq 0 ]]; then
-        echo "Download complete: ${output_file}"
-    else
-        echo "Failed to download OpenJDK Temurin. Please check the version and architecture."
-        return 2
-    fi
+    echo_info "Download completed. File: ${outfile}"
+    local pkg_rootdir=$(tar -ztf $outfile | head -1 | sed -e 's|\/$||')
 }
 
 # Function to download Node.js binary package
 download_nodejs() {
-    local version="$1"     # Node.js version to download
-    local arch="${2:-x64}" # Architecture (default: x64)
+    local version=$1
+    if [[ -z $version ]]; then
+        echo "Usage: download_nodejs <version>"
+        return 1
+    fi
+
+    # Detect OS and architecture
+    local os=""
+    local arch=""
+
+    case "$(uname -s)" in
+    Linux) os="linux" ;;
+    Darwin) os="darwin" ;;
+    *)
+        echo "Unsupported OS: $(uname -s)"
+        return 1
+        ;;
+    esac
+
+    case "$(uname -m)" in
+    x86_64) arch="x64" ;;
+    arm64 | aarch64) arch="arm64" ;;
+    *)
+        echo "Unsupported architecture: $(uname -m)"
+        return 1
+        ;;
+    esac
+
+    # Construct the download URL
     local base_url="https://nodejs.org/dist"
-    local filename="node-v${version}-linux-${arch}.tar.xz"
+    local filename="node-v${version}-${os}-${arch}.tar.gz"
     local url="${base_url}/v${version}/${filename}"
 
-    # Check if version is provided
-    if [[ -z "$version" ]]; then
-        echo "Usage: download_nodejs <version> [architecture]"
-        echo "Example: download_nodejs 18.18.0 x64"
+    # Download the Node.js tarball
+    echo "Downloading Node.js version ${version} for ${os}-${arch}..."
+    curl -LO "${url}" || {
+        echo "Failed to download from ${url}"
         return 1
-    fi
+    }
 
-    echo "Downloading Node.js version ${version} for Linux (${arch})..."
-
-    # Use curl or wget to download
-    if command -v curl >/dev/null; then
-        curl -O "$url"
-    elif command -v wget >/dev/null; then
-        wget "$url"
-    else
-        echo "Error: Neither curl nor wget is installed."
-        return 1
-    fi
-
-    # Check if the download was successful
-    if [[ -f "$filename" ]]; then
-        echo "Download complete: ${filename}"
-    else
-        echo "Error: Failed to download Node.js version ${version}."
-        return 1
-    fi
-
-    echo "To extract: tar -xf ${filename}"
-    return 0
+    echo "Download completed. File: ${filename}"
 }
 
 # Function to download Go
 download_golang() {
-    # Function to download and install Go
-    # Arguments:
-    # $1 - Version (e.g., "1.20.5")
-    # $2 - Architecture (e.g., "amd64", "arm64")
-
-    if [[ $# -ne 2 ]]; then
-        echo "Usage: download_golang <version> <architecture>"
+    local version=$1
+    if [[ -z $version ]]; then
+        echo "Usage: download_golang <version>"
         return 1
     fi
 
-    local version="$1"
-    local arch="$2"
-    local url="https://go.dev/dl/go${version}.linux-${arch}.tar.gz"
-    local destination="/usr/local"
+    # Detect OS and architecture
+    local os=""
+    local arch=""
 
-    echo "Downloading Go version ${version} for architecture ${arch} from ${url}..."
-
-    # Download the tarball
-    wget -q --show-progress "${url}" -O "/tmp/go${version}.linux-${arch}.tar.gz"
-    if [[ $? -ne 0 ]]; then
-        echo "Failed to download Go. Please check the version and architecture."
+    case "$(uname -s)" in
+    Linux) os="linux" ;;
+    Darwin) os="darwin" ;;
+    *)
+        echo "Unsupported OS: $(uname -s)"
         return 1
-    fi
+        ;;
+    esac
 
-    echo "Download successful. Installing to ${destination}..."
+    case "$(uname -m)" in
+    x86_64) arch="amd64" ;;
+    arm64 | aarch64) arch="arm64" ;;
+    *)
+        echo "Unsupported architecture: $(uname -m)"
+        return 1
+        ;;
+    esac
 
-    # Remove any existing Go installation in /usr/local
-    sudo rm -rf "${destination}/go"
+    # Construct the download URL
+    local base_url="https://go.dev/dl"
+    local filename="go${version}.${os}-${arch}.tar.gz"
+    local url="${base_url}/${filename}"
 
-    # Extract the tarball to /usr/local
-    sudo tar -C "${destination}" -xzf "/tmp/go${version}.linux-${arch}.tar.gz"
+    # Download the Go tarball
+    echo "Downloading Go version ${version} for ${os}-${arch}..."
+    curl -LO "${url}" || {
+        echo "Failed to download from ${url}"
+        return 1
+    }
 
-    # Clean up the tarball
-    rm "/tmp/go${version}.linux-${arch}.tar.gz"
-
-    echo "Go ${version} installed successfully to ${destination}/go."
-    echo "Add the following line to your shell configuration file:"
-    echo 'export PATH=$PATH:/usr/local/go/bin'
+    echo "Download completed. File: ${filename}"
 }
 
 # Function to download Gradle binary package
