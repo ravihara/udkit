@@ -25,7 +25,7 @@ layout_udkpyenv() {
 ## Handle nodejs version
 use_nodejs() {
   local udk_version=${1:-22}
-  local udk_basedir="$UDKIT_BASE/sdk/nodejs"
+  local udk_basedir="$UDKIT_BASE/dev/nodejs"
 
   local prog_dir="$udk_basedir/$udk_version"
   local sys_prog="$(which npm 2>/dev/null)"
@@ -41,7 +41,7 @@ use_nodejs() {
 ## Handle golang version
 use_golang() {
   local udk_version=${1:-1.23}
-  local udk_basedir="$UDKIT_BASE/sdk/golang"
+  local udk_basedir="$UDKIT_BASE/dev/golang"
 
   local prog_dir="$udk_basedir/$udk_version"
   local sys_prog="$(which go 2>/dev/null)"
@@ -59,7 +59,7 @@ use_golang() {
 ## Handle openjdk version
 use_openjdk() {
   local udk_version=${1:-17}
-  local udk_basedir="$UDKIT_BASE/sdk/openjdk"
+  local udk_basedir="$UDKIT_BASE/dev/openjdk"
 
   local prog_dir="$udk_basedir/$udk_version"
   local sys_jvm="$(test -e /etc/alternatives/java && ls -l /etc/alternatives/java | awk {'print $11'} | sed -e 's|/bin/java||' 2>/dev/null)"
@@ -78,7 +78,7 @@ use_openjdk() {
 ## Handle gradle version
 use_gradle() {
   local udk_version=${1:-8.10}
-  local udk_basedir="$UDKIT_BASE/util/gradle"
+  local udk_basedir="$UDKIT_BASE/dev/gradle"
 
   local prog_dir="$udk_basedir/$udk_version"
   local sys_prog="$(which gradle 2>/dev/null)"
@@ -94,7 +94,7 @@ use_gradle() {
 ## Handle maven version
 use_maven() {
   local udk_version=${1:-3.9}
-  local udk_basedir="$UDKIT_BASE/util/maven"
+  local udk_basedir="$UDKIT_BASE/dev/maven"
 
   local prog_dir="$udk_basedir/$udk_version"
   local sys_prog="$(which mvn 2>/dev/null)"
