@@ -1,6 +1,10 @@
 #!/bin/zsh
 
+## UDKit configuration
 export UDKIT_BASE=$HOME/.udkit
+export PATH="$UDKIT_BASE/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin:$PATH"
+export LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
+export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 ## Set line coloring
 export TRML_HL='\033[1;35m'
@@ -10,11 +14,6 @@ export TRML_NC='\033[0m'
 if [ -z "$EDITOR" ]; then
   export EDITOR=vim
 fi
-
-## Export common environment variables needed by libraries and executables
-export PATH="$UDKIT_BASE/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin:$PATH"
-export LD_LIBRARY_PATH="/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
-export PKG_CONFIG_PATH="/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 ## Terminal settings for system debug related params
 ulimit -c unlimited
@@ -38,8 +37,8 @@ fi
 [ -d ~/.cargo ] && source "$HOME/.cargo/env"
 
 ## Pyenv configuration
-if [ -n "$(command -v pyenv 2>/dev/null)" ]; then
-  export PYENV_ROOT=$(pyenv root)
+if [ -x "$HOME/.pyenv/bin/pyenv" ]; then
+  export PYENV_ROOT="$HOME/.pyenv"
   export PATH="${PYENV_ROOT}/bin:$PATH"
 
   eval "$(pyenv init -)"
@@ -78,7 +77,7 @@ normalize_build_env() {
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
 ### direnv configuration - This should be at the end ###
-if [ -n "$(which direnv)" ]; then
+if [ -n "$(command -v direnv 2>/dev/null)" ]; then
   export DIRENV_LOG_FORMAT=""
   eval "$(direnv hook zsh)"
 fi
