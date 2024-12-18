@@ -1,17 +1,68 @@
-#!/bin/bash
+#!/bin/bash -e
 
-LATEST_PYVER=${1:-3.11.11}
+REQ_PYVER=${1:-3.11.11}
 
-## Install system dependencies
-sudo apt-get update -y && sudo apt-get upgrade -y
-sudo apt-get install -y fontconfig curl rsync wget htop jq tree git bzip2 zip unzip net-tools vim universal-ctags \
-  gpg xfonts-utils apt-transport-https locales tzdata libcap2-bin procps iproute2 nano xz-utils build-essential \
-  make automake autoconf libtool intltool cmake pkg-config swig libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
-  libsqlite3-dev libncursesw5-dev tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev libgdbm-dev libnss3-dev \
-  uuid-dev && sync
+# Function to print messages
+echo_info() {
+  echo -e "\e[34m[INFO]\e[0m $1"
+}
 
-## Cleanup apt packages
-sudo apt-get autoremove --purge -y && sudo apt-get clean && sudo dpkg --configure -a
+echo_error() {
+  echo -e "\e[31m[ERROR]\e[0m $1"
+  exit 1
+}
+
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+  echo_error "Do not run this script as root or with sudo."
+fi
+
+# Detect the OS type
+OS="$(. /etc/os-release && echo "$ID")"
+echo_info "Detected OS: $OS"
+
+# Install dependencies
+if [[ "$OS" == "debian" || "$OS" == "ubuntu" ]]; then
+  echo_info "Installing dependencies for Debian-based systems"
+  sudo apt update
+  sudo apt upgrade -y
+  sudo apt install -y \
+    build-essential \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    curl \
+    llvm \
+    libncurses5-dev \
+    libncursesw5-dev \
+    xz-utils \
+    tk-dev \
+    libffi-dev \
+    liblzma-dev \
+    git
+  sync && sudo apt autoremove --purge -y && sudo apt clean && sudo dpkg --configure -a
+elif [[ "$OS" == "rhel" || "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
+  echo_info "Installing dependencies for RHEL-based systems"
+  sudo yum groupinstall -y "Development Tools"
+  sudo yum install -y \
+    gcc \
+    zlib-devel \
+    bzip2 \
+    bzip2-devel \
+    readline-devel \
+    sqlite \
+    sqlite-devel \
+    openssl-devel \
+    tk-devel \
+    libffi-devel \
+    xz-devel \
+    git \
+    curl
+else
+  echo_error "Unsupported OS: $OS"
+fi
 
 ## Install pyenv
 if [ -z "$(command -v pyenv 2>/dev/null)" ]; then
@@ -26,15 +77,15 @@ else
 fi
 
 ## Install latest python3
-if [ -z "$(pyenv versions | grep -v grep | grep "${LATEST_PYVER}")" ]; then
-  pyenv install ${LATEST_PYVER} && sync
+if [ -z "$(pyenv versions | grep -v grep | grep "${REQ_PYVER}")" ]; then
+  pyenv install ${REQ_PYVER} && sync
 else
-  echo -e "python-${LATEST_PYVER} is already installed, skipping it."
+  echo -e "python-${REQ_PYVER} is already installed, skipping it."
 fi
 
 ## Set global python version
 pyenv rehash
-pyenv global ${LATEST_PYVER} && sync
+pyenv global ${REQ_PYVER} && sync
 python3 -m pip install -U --upgrade wheel setuptools pybind11 pip
 
 ## Install poetry
