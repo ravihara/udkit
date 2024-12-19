@@ -37,5 +37,34 @@ echo_info() {
 
 echo_error() {
     echo -e "\e[31m[ERROR]\e[0m $1"
-    exit 1
+}
+
+is_url_valid() {
+    local url=$1
+    curl -I -s -o /dev/null -w "%{http_code}" "$url" | grep -q 200
+    return $?
+}
+
+zip_pkg_rootdir() {
+    filename=$1
+
+    # Extract the root directory name from the zip file
+    local rootdir=$(unzip -Z1 "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$rootdir"
+}
+
+tar_gz_pkg_rootdir() {
+    filename=$1
+
+    # Extract the root directory name from the tar file
+    local rootdir=$(tar -ztf "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$rootdir"
+}
+
+tar_pkg_rootdir() {
+    filename=$1
+
+    # Extract the root directory name from the tar file
+    local rootdir=$(tar -tf "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$rootdir"
 }

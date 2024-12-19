@@ -7,6 +7,7 @@ source ~/.udkit/funcs.bash
 # Check if running as root
 if [ "$EUID" -eq 0 ]; then
   echo_error "Do not run this script as root or with sudo."
+  exit 1
 fi
 
 # Detect the OS type
@@ -54,6 +55,7 @@ elif [[ "$OS" == "rhel" || "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "al
     curl
 else
   echo_error "Unsupported OS: $OS"
+  exit 1
 fi
 
 ## Install pyenv
