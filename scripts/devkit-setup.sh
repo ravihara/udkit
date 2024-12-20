@@ -1,5 +1,17 @@
 #!/bin/bash -e
 
+# Check if running as root
+if [ "$EUID" -eq 0 ]; then
+    echo_error "Do not run this script as root or with sudo."
+    exit 1
+fi
+
+## Check for atleast two arguments
+if [[ $# -lt 2 ]]; then
+    echo_error "Usage: $(basename $0) <devkit> <version>"
+    exit 1
+fi
+
 ## Get the current script dir
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 UDKIT_BASE=$(cd -- "$(dirname -- "${SCRIPT_DIR}")" &>/dev/null && pwd)
@@ -8,13 +20,7 @@ CACHE_DIR="${UDKIT_BASE}/cache"
 mkdir -p $CACHE_DIR
 source ${UDKIT_BASE}/funcs.bash
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo_error "Do not run this script as root or with sudo."
-    exit 1
-fi
-
-check_cached_file() {
+_valid_cached_file() {
     filename=$1
 
     ## Check if the file is already cached and is not older than 30 days
@@ -23,11 +29,12 @@ check_cached_file() {
         local current_time=$(date +%s)
         local time_diff=$((current_time - last_modified))
         local days_diff=$((time_diff / 86400))
+
         if [ $days_diff -lt 30 ]; then
-            echo_info "File is already cached and is not older than 30 days. Skipping download."
+            echo_info "Found already cached file $filename."
             return 0
         else
-            echo_info "File is already cached but is older than 30 days. Downloading again."
+            echo_info "Cached file $filename is older than 30 days. Redownloading..."
             rm -f "${CACHE_DIR}/${filename}"
         fi
     fi
@@ -35,11 +42,197 @@ check_cached_file() {
     return 1
 }
 
-# Function to download OpenJDK Temurin
-download_temurin() {
+_install_openjdk() {
+    local pkgfile=$1
+    local version=$2
+    local force=$3
+
+    local jdk_base="${UDKIT_BASE}/dist/openjdk"
+    local pkgbase=$(tar_gz_pkgbase $pkgfile)
+
+    mkdir -p $jdk_base
+
+    local jdk_dir="${jdk_base}/${pkgbase}"
+    local jdk_bin="${jdk_dir}/bin"
+    local jdk_lib="${jdk_dir}/lib"
+    local jdk_inc="${jdk_dir}/include"
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${jdk_dir}" ]; then
+            echo_info "Temurin JDK ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Temurin JDK ${version}..."
+        rm -f "${jdk_base}/${version}"
+        rm -rf "${jdk_dir}"
+    fi
+
+    echo_info "Installing Temurin JDK ${version}..."
+    tar -xf "${pkgfile}" -C "${jdk_base}" && sync
+    ln -s "${jdk_dir}" "${jdk_base}/${version}"
+
+    if [ -d "${jdk_bin}" ] && [ -d "${jdk_lib}" ] && [ -d "${jdk_inc}" ]; then
+        echo_info "Temurin JDK ${version} is installed successfully."
+    else
+        echo_error "Failed to install Temurin JDK ${version}."
+        return 1
+    fi
+}
+
+_install_nodejs() {
+    local pkgfile=$1
+    local version=$2
+    local force=$3
+
+    local node_base="${UDKIT_BASE}/dist/nodejs"
+    local pkgbase=$(tar_xz_pkgbase $pkgfile)
+
+    mkdir -p $node_base
+
+    local node_dir="${node_base}/${version}"
+    local node_bin="${node_dir}/bin"
+    local node_lib="${node_dir}/lib"
+    local node_inc="${node_dir}/include"
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${node_dir}" ]; then
+            echo_info "Node.js ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Node.js ${version}..."
+        rm -rf "${node_dir}"
+    fi
+
+    echo_info "Installing Node.js ${version}..."
+    tar -xf "${pkgfile}" -C "${node_base}" && sync
+    mv "${node_base}/${pkgbase}" "${node_dir}"
+
+    if [ -d "${node_bin}" ] && [ -d "${node_lib}" ] && [ -d "${node_inc}" ]; then
+        echo_info "Node.js ${version} is installed successfully."
+    else
+        echo_error "Failed to install Node.js ${version}."
+        return 1
+    fi
+}
+
+_install_golang() {
+    local pkgfile=$1
+    local version=$2
+    local force=$3
+
+    local go_base="${UDKIT_BASE}/dist/golang"
+    local pkgbase=$(tar_gz_pkgbase $pkgfile)
+
+    mkdir -p $go_base
+
+    local go_dir="${go_base}/${version}"
+    local go_bin="${go_dir}/bin"
+    local go_lib="${go_dir}/lib"
+    local go_inc="${go_dir}/include"
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${go_dir}" ]; then
+            echo_info "Go ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Go ${version}..."
+        rm -rf "${go_dir}"
+    fi
+
+    echo_info "Installing Go ${version}..."
+    tar -xf "${pkgfile}" -C "${go_base}" && sync
+    mv "${go_base}/${pkgbase}" "${go_dir}"
+
+    if [ -d "${go_bin}" ] && [ -d "${go_lib}" ] && [ -d "${go_inc}" ]; then
+        echo_info "Go ${version} is installed successfully."
+    else
+        echo_error "Failed to install Go ${version}."
+        return 1
+    fi
+}
+
+_install_gradle() {
+    local pkgfile=$1
+    local version=$2
+    local force=$3
+
+    local gradle_base="${UDKIT_BASE}/dist/gradle"
+    local pkgbase=$(zip_pkgbase $pkgfile)
+
+    mkdir -p $gradle_base
+
+    local gradle_dir="${gradle_base}/${version}"
+    local gradle_bin="${gradle_dir}/bin"
+    local gradle_lib="${gradle_dir}/lib"
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${gradle_dir}" ]; then
+            echo_info "Gradle ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Gradle ${version}..."
+        rm -rf "${gradle_dir}"
+    fi
+
+    echo_info "Installing Gradle ${version}..."
+    unzip "${pkgfile}" -d "${gradle_base}" && sync
+    mv "${gradle_base}/${pkgbase}" "${gradle_dir}"
+
+    if [ -d "${gradle_bin}" ] && [ -d "${gradle_lib}" ]; then
+        echo_info "Gradle ${version} is installed successfully."
+    else
+        echo_error "Failed to install Gradle ${version}."
+        return 1
+    fi
+}
+
+_install_maven() {
+    local pkgfile=$1
+    local version=$2
+    local force=$3
+
+    local maven_base="${UDKIT_BASE}/dist/maven"
+    local pkgbase=$(zip_pkgbase $pkgfile)
+
+    mkdir -p $maven_base
+
+    local maven_dir="${maven_base}/${version}"
+    local maven_bin="${maven_dir}/bin"
+    local maven_lib="${maven_dir}/lib"
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${maven_dir}" ]; then
+            echo_info "Maven ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Maven ${version}..."
+        rm -rf "${maven_dir}"
+    fi
+
+    echo_info "Installing Maven ${version}..."
+    unzip "${pkgfile}" -d "${maven_base}" && sync
+    mv "${maven_base}/${pkgbase}" "${maven_dir}"
+
+    if [ -d "${maven_bin}" ] && [ -d "${maven_lib}" ]; then
+        echo_info "Maven ${version} is installed successfully."
+    else
+        echo_error "Failed to install Maven ${version}."
+        return 1
+    fi
+}
+
+# Function to download Temurin JDK
+setup_openjdk() {
     local version=$1
+    local force=$2
+
     if [[ -z $version ]]; then
-        echo_error "Usage: download_temurin <version>"
+        echo_error "Usage: $(basename $0) openjdk <version>"
         return 1
     fi
 
@@ -70,24 +263,40 @@ download_temurin() {
     local package_type="jdk"
     local jvm_impl="hotspot"
     local url="${base_url}/${version}/ga/${os}/${arch}/$package_type/${jvm_impl}/normal/adoptium"
-    local filename="temurin-${version}-${os}-${arch}.tar.gz"
+    local filename="temurin-jdk-${version}-${os}-${arch}.tar.gz"
 
-    # Download the JDK
-    echo_info "Downloading Temurin JDK version ${version} for ${os}-${arch}..."
-    curl -o "${filename}" -L "${url}" || {
-        echo_error "Failed to download from ${url}"
+    # Check if URL is valid
+    if ! is_url_valid "${url}"; then
+        echo_error "Invalid download URL: ${url}"
         return 1
-    }
+    fi
 
-    echo_info "Download completed. File: ${filename}"
-    local pkg_rootdir=$(tar -ztf "${filename}" | head -1 | awk -F "/" {'print $1'})
+    # Check for cached file or, download afresh
+    if ! _valid_cached_file "${filename}"; then
+        echo_info "Downloading Temurin JDK ${version} for ${os}-${arch}..."
+        curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
+            echo_error "Failed to download from ${url}"
+            return 1
+        }
+
+        echo_info "Download completed. File: ${filename}"
+    else
+        echo_info "Using cached Temurin JDK ${version} package for ${os}-${arch}..."
+    fi
+
+    filename="${CACHE_DIR}/${filename}"
+
+    # Install the OpenJDK tarball
+    _install_openjdk "${filename}" "${version}" "${force}"
 }
 
 # Function to download Node.js binary package
-download_nodejs() {
+setup_nodejs() {
     local version=$1
+    local force=$2
+
     if [[ -z $version ]]; then
-        echo_error "Usage: download_nodejs <version>"
+        echo_error "Usage: setup_nodejs <version>"
         return 1
     fi
 
@@ -124,21 +333,32 @@ download_nodejs() {
         return 1
     fi
 
-    # Download the Node.js tarball
-    echo_info "Downloading Node.js version ${version} for ${os}-${arch}..."
-    curl -o "${filename}" -L "${url}" || {
-        echo_error "Failed to download from ${url}"
-        return 1
-    }
+    # Check for cached file or, download afresh
+    if ! _valid_cached_file "${filename}"; then
+        echo_info "Downloading Node.js version ${version} for ${os}-${arch}..."
+        curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
+            echo_error "Failed to download from ${url}"
+            return 1
+        }
 
-    echo_info "Download completed. File: ${filename}"
+        echo_info "Download completed. File: ${filename}"
+    else
+        echo_info "Using cached Node.js version ${version} package for ${os}-${arch}..."
+    fi
+
+    filename="${CACHE_DIR}/${filename}"
+
+    # Install the Node.js tarball
+    _install_nodejs "${filename}" "${version}" "${force}"
 }
 
 # Function to download Go
-download_golang() {
+setup_golang() {
     local version=$1
+    local force=$2
+
     if [[ -z $version ]]; then
-        echo_error "Usage: download_golang <version>"
+        echo_error "Usage: setup_golang <version>"
         return 1
     fi
 
@@ -169,22 +389,35 @@ download_golang() {
     local filename="go${version}.${os}-${arch}.tar.gz"
     local url="${base_url}/${filename}"
 
-    # Download the Go tarball
-    echo_info "Downloading Go version ${version} for ${os}-${arch}..."
-    curl -o "${filename}" -L "${url}" || {
-        echo_error "Failed to download from ${url}"
+    # Check if the URL is valid
+    if ! is_url_valid "${url}"; then
+        echo_error "Invalid download URL: ${url}"
         return 1
-    }
+    fi
 
-    echo_info "Download completed. File: ${filename}"
+    # Check for cached file or, download afresh
+    if ! _valid_cached_file "${filename}"; then
+        echo_info "Downloading Go version ${version} for ${os}-${arch}..."
+        curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
+            echo_error "Failed to download from ${url}"
+            return 1
+        }
+
+        echo_info "Download completed. File: ${filename}"
+    else
+        echo_info "Using cached Go version ${version} package for ${os}-${arch}..."
+    fi
+
+    filename="${CACHE_DIR}/${filename}"
+
+    # Install the Go binary
+    _install_golang "${filename}" "${version}" "${force}"
 }
 
 # Function to download Gradle binary package
-download_gradle() {
+setup_gradle() {
     local version=$1
-    local base_url="https://services.gradle.org/distributions"
-    local filename="gradle-${version}-bin.zip"
-    local url="${base_url}/${filename}"
+    local force=$2
 
     # Check if version is provided
     if [[ -z "$version" ]]; then
@@ -192,19 +425,39 @@ download_gradle() {
         return 1
     fi
 
-    # Download the Gradle binary package
-    echo_info "Downloading Gradle version $version from $url..."
-    curl -o "${filename}" -L "${url}" || {
-        echo_error "Failed to download from ${url}"
-        return 1
-    }
+    local base_url="https://services.gradle.org/distributions"
+    local filename="gradle-${version}-bin.zip"
+    local url="${base_url}/${filename}"
 
-    echo_info "Download completed. File: ${filename}"
+    # Check if the URL is valid
+    if ! is_url_valid "${url}"; then
+        echo_error "Invalid download URL: ${url}"
+        return 1
+    fi
+
+    # Check for cached file or, download afresh
+    if ! _valid_cached_file "${filename}"; then
+        echo_info "Downloading Gradle version $version from $url..."
+        curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
+            echo_error "Failed to download from ${url}"
+            return 1
+        }
+
+        echo_info "Download completed. File: ${filename}"
+    else
+        echo_info "Using cached Gradle version $version package..."
+    fi
+
+    filename="${CACHE_DIR}/${filename}"
+
+    # Install the Gradle binary package
+    _install_gradle "${filename}" "${version}" "${force}"
 }
 
 # Function to download Maven binary package
-download_maven() {
+setup_maven() {
     local version=$1
+    local force=$2
 
     # Check if version is provided
     if [[ -z "$version" ]]; then
@@ -216,18 +469,95 @@ download_maven() {
     local filename="apache-maven-${version}-bin.zip"
     local url="${base_url}/${version}/binaries/${filename}"
 
-    # Download the Maven binary package
-    echo_info "Downloading Maven version $version from $url..."
-    curl -o "${filename}" -L "${url}" || {
-        echo_error "Failed to download from ${url}"
+    # Check if the URL is valid
+    if ! is_url_valid "${url}"; then
+        echo_error "Invalid download URL: ${url}"
         return 1
-    }
+    fi
 
-    echo_info "Download completed. File: ${filename}"
+    # Check for cached file or, download afresh
+    if ! _valid_cached_file "${filename}"; then
+        echo_info "Downloading Maven version $version from $url..."
+        curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
+            echo_error "Failed to download from ${url}"
+            return 1
+        }
+
+        echo_info "Download completed. File: ${filename}"
+    else
+        echo_info "Using cached Maven version $version package..."
+    fi
+
+    filename="${CACHE_DIR}/${filename}"
+
+    # Install the Maven binary package
+    _install_maven "${filename}" "${version}" "${force}"
 }
 
-download_temurin 17
-download_nodejs 22.12.0
-download_golang 1.23.4
-download_gradle 8.11
-download_maven 3.9.9
+## Install the required devkit with commandline arguments
+setup_devkit() {
+    local devkit=$1
+    local version=$2
+    local force=$3
+
+    case "$devkit" in
+    openjdk)
+        setup_openjdk $version $force
+        ;;
+    nodejs)
+        setup_nodejs $version $force
+        ;;
+    golang)
+        setup_golang $version $force
+        ;;
+    gradle)
+        setup_gradle $version $force
+        ;;
+    maven)
+        setup_maven $version $force
+        ;;
+    *)
+        echo_error "Unknown devkit: $devkit.\nSupported devkits: openjdk, nodejs, golang, gradle, maven"
+        return 1
+        ;;
+    esac
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --kit=*)
+        KIT_NAME="${1#*=}"
+        echo "Devkit: $KIT_NAME"
+        shift
+        ;;
+    --version=*)
+        KIT_VERSION="${1#*=}"
+        echo "Age: $KIT_VERSION"
+        shift
+        ;;
+    --force=*)
+        FORCE="${1#*=}"
+        echo "Force: $FORCE"
+        shift
+        ;;
+    --help)
+        echo "Usage: $0 [options]"
+        echo "Options:"
+        echo "  --kit=<devkit>      Devkit to install (openjdk, nodejs, golang, gradle, maven)"
+        echo "  --version=<version> Version of the devkit to install"
+        echo "  --force=<true|false> Force install devkit even if it is already installed"
+        echo "  --help              Display this help message"
+        exit 0
+        ;;
+    *)
+        echo "Unknown option: $1"
+        exit 1
+        ;;
+    esac
+done
+
+if [[ $FORCE == "true" ]]; then
+    setup_devkit $KIT_NAME $KIT_VERSION true
+else
+    setup_devkit $KIT_NAME $KIT_VERSION
+fi

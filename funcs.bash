@@ -41,30 +41,31 @@ echo_error() {
 
 is_url_valid() {
     local url=$1
-    curl -I -s -o /dev/null -w "%{http_code}" "$url" | grep -q 200
+
+    curl -Is --max-time 10 "$url" | head -n 1 | grep -q "200\|301\|302\|307"
     return $?
 }
 
-zip_pkg_rootdir() {
+zip_pkgbase() {
     filename=$1
 
     # Extract the root directory name from the zip file
-    local rootdir=$(unzip -Z1 "${filename}" | head -1 | awk -F "/" {'print $1'})
-    echo "$rootdir"
+    local pkgbase=$(unzip -Z1 "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$pkgbase"
 }
 
-tar_gz_pkg_rootdir() {
+tar_gz_pkgbase() {
     filename=$1
 
     # Extract the root directory name from the tar file
-    local rootdir=$(tar -ztf "${filename}" | head -1 | awk -F "/" {'print $1'})
-    echo "$rootdir"
+    local pkgbase=$(tar -ztf "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$pkgbase"
 }
 
-tar_pkg_rootdir() {
+tar_pkgbase() {
     filename=$1
 
     # Extract the root directory name from the tar file
-    local rootdir=$(tar -tf "${filename}" | head -1 | awk -F "/" {'print $1'})
-    echo "$rootdir"
+    local pkgbase=$(tar -tf "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$pkgbase"
 }
