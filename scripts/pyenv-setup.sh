@@ -80,7 +80,12 @@ fi
 ## Set global python version
 pyenv rehash
 pyenv global ${REQ_PYVER} && sync
-python3 -m pip install -U --upgrade wheel setuptools pybind11 pip
+
+echo "Refreshing python tools..."
+python3 -m pip install -U --upgrade wheel setuptools pybind11 pip nox invoke
+
+echo "Installing keyring packages..."
+python3 -m pip install -U keyring artifacts-keyring
 
 ## Install poetry
 if [ -z "$(command -v poetry 2>/dev/null)" ]; then
