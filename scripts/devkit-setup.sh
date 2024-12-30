@@ -8,7 +8,7 @@ fi
 
 ## Check for atleast two arguments
 if [[ $# -lt 2 ]]; then
-    echo_error "Usage: $(basename $0) <devkit> <version>"
+    echo_error "Usage: $(basename $0) --kit=<devkit> --version=<version> [--force=true|false]"
     exit 1
 fi
 
