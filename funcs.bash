@@ -1,5 +1,16 @@
 #!/bin/bash
 
+## Check for wget, tar and unzip
+_check_dependencies() {
+    local dependencies=("wget" "tar" "unzip")
+    for dependency in "${dependencies[@]}"; do
+        command -v "$dependency" &>/dev/null || {
+            echo "Missing dependency: $dependency"
+            exit 1
+        }
+    done
+}
+
 ## Array to string conversion with given separator
 join_list_items_by() {
     local d=${1-} f=${2-}
@@ -42,7 +53,7 @@ echo_error() {
 is_url_valid() {
     local url=$1
 
-    curl -Is --max-time 10 "$url" | head -n 1 | grep -q "200\|301\|302\|307"
+    wget --spider --quiet "$url"
     return $?
 }
 
@@ -69,3 +80,5 @@ tar_pkgbase() {
     local pkgbase=$(tar -tf "${filename}" | head -1 | awk -F "/" {'print $1'})
     echo "$pkgbase"
 }
+
+_check_dependencies

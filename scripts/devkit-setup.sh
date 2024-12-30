@@ -1,5 +1,13 @@
 #!/bin/bash -e
 
+## Get the current script dir
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+UDKIT_BASE=$(cd -- "$(dirname -- "${SCRIPT_DIR}")" &>/dev/null && pwd)
+CACHE_DIR="${UDKIT_BASE}/cache"
+
+source ${UDKIT_BASE}/funcs.bash
+mkdir -p $CACHE_DIR
+
 # Check if running as root
 if [ "$EUID" -eq 0 ]; then
     echo_error "Do not run this script as root or with sudo."
@@ -11,14 +19,6 @@ if [[ $# -lt 2 ]]; then
     echo_error "Usage: $(basename $0) --kit=<devkit> --version=<version> [--force=true|false]"
     exit 1
 fi
-
-## Get the current script dir
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-UDKIT_BASE=$(cd -- "$(dirname -- "${SCRIPT_DIR}")" &>/dev/null && pwd)
-CACHE_DIR="${UDKIT_BASE}/cache"
-
-mkdir -p $CACHE_DIR
-source ${UDKIT_BASE}/funcs.bash
 
 _valid_cached_file() {
     filename=$1
@@ -86,7 +86,7 @@ _install_nodejs() {
     local force=$3
 
     local node_base="${UDKIT_BASE}/dist/nodejs"
-    local pkgbase=$(tar_xz_pkgbase $pkgfile)
+    local pkgbase=$(tar_pkgbase $pkgfile)
 
     mkdir -p $node_base
 
@@ -130,7 +130,6 @@ _install_golang() {
     local go_dir="${go_base}/${version}"
     local go_bin="${go_dir}/bin"
     local go_lib="${go_dir}/lib"
-    local go_inc="${go_dir}/include"
 
     if [ "$force" != "true" ]; then
         if [ -d "${go_dir}" ]; then
@@ -143,10 +142,10 @@ _install_golang() {
     fi
 
     echo_info "Installing Go ${version}..."
-    tar -xf "${pkgfile}" -C "${go_base}" && sync
+    tar -zxf "${pkgfile}" -C "${go_base}" && sync
     mv "${go_base}/${pkgbase}" "${go_dir}"
 
-    if [ -d "${go_bin}" ] && [ -d "${go_lib}" ] && [ -d "${go_inc}" ]; then
+    if [ -d "${go_bin}" ] && [ -d "${go_lib}" ]; then
         echo_info "Go ${version} is installed successfully."
     else
         echo_error "Failed to install Go ${version}."
@@ -179,7 +178,7 @@ _install_gradle() {
     fi
 
     echo_info "Installing Gradle ${version}..."
-    unzip "${pkgfile}" -d "${gradle_base}" && sync
+    unzip -qq "${pkgfile}" -d "${gradle_base}" && sync
     mv "${gradle_base}/${pkgbase}" "${gradle_dir}"
 
     if [ -d "${gradle_bin}" ] && [ -d "${gradle_lib}" ]; then
@@ -215,7 +214,7 @@ _install_maven() {
     fi
 
     echo_info "Installing Maven ${version}..."
-    unzip "${pkgfile}" -d "${maven_base}" && sync
+    unzip -qq "${pkgfile}" -d "${maven_base}" && sync
     mv "${maven_base}/${pkgbase}" "${maven_dir}"
 
     if [ -d "${maven_bin}" ] && [ -d "${maven_lib}" ]; then
@@ -532,7 +531,7 @@ while [[ $# -gt 0 ]]; do
         ;;
     --version=*)
         KIT_VERSION="${1#*=}"
-        echo "Age: $KIT_VERSION"
+        echo "Version: $KIT_VERSION"
         shift
         ;;
     --force=*)
