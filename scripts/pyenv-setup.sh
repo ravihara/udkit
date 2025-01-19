@@ -26,6 +26,7 @@ if [[ "$OS" == "debian" || "$OS" == "ubuntu" ]]; then
     libbz2-dev \
     libreadline-dev \
     libsqlite3-dev \
+    libmysql-dev \
     curl \
     llvm \
     libncurses5-dev \
@@ -34,6 +35,7 @@ if [[ "$OS" == "debian" || "$OS" == "ubuntu" ]]; then
     tk-dev \
     libffi-dev \
     liblzma-dev \
+    libkrb5-dev \
     git
   sync && sudo apt autoremove --purge -y && sudo apt clean && sudo dpkg --configure -a
 elif [[ "$OS" == "rhel" || "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "almalinux" ]]; then
@@ -47,10 +49,12 @@ elif [[ "$OS" == "rhel" || "$OS" == "centos" || "$OS" == "rocky" || "$OS" == "al
     readline-devel \
     sqlite \
     sqlite-devel \
+    mysql-devel \
     openssl-devel \
     tk-devel \
     libffi-devel \
     xz-devel \
+    krb5-devel \
     git \
     curl
 else
