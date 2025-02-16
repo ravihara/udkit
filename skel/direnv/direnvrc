@@ -5,7 +5,7 @@ layout_pyuv() {
   local py_version=${1:-3.11}
 
   if [ -z "$(command -v uv 2>/dev/null)" ]; then
-    echo_error "Unable to find 'uv' command. Please check the installation or PATH"
+    echo "Unable to find 'uv' command. Please check the installation or PATH"
     return
   fi
 
@@ -18,7 +18,7 @@ layout_pyuv() {
 
   if [[ -z $VIRTUAL_ENV || ! -d $VIRTUAL_ENV ]]; then
     if [[ ! -f "pyproject.toml" ]]; then
-      echo_info "No uv project exists. Executing \`uv init\` to create one."
+      echo "No uv project exists. Executing \`uv init\` to create one."
       uv init --no-readme
     fi
 
@@ -38,7 +38,7 @@ layout_pyenv() {
   local py_envname=${2:-${proj_name}}
 
   if [ -z "$(command -v pyenv 2>/dev/null)" ]; then
-    echo_error "Unable to find 'pyenv' command. Please check the installation or PATH"
+    echo "Unable to find 'pyenv' command. Please check the installation or PATH"
     return
   fi
 
