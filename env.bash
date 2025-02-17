@@ -25,24 +25,22 @@ export GPG_TTY=$(tty)
 export DOCKER_BUILDKIT=1
 export COMPOSE_DOCKER_CLI_BUILD=0
 
-## Starship prompt configuration
-if [ -n "$(command -v starship 2>/dev/null)" ]; then
-  eval "$(starship init bash)"
-fi
-
 ## Fuzzy finder configuration
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 
 ## Rust/cargo configuration
 [ -d ~/.cargo ] && source "$HOME/.cargo/env"
 
-## Pyenv configuration
-if [ -x "$HOME/.pyenv/bin/pyenv" ]; then
-  export PYENV_ROOT="$HOME/.pyenv"
-  export PATH="${PYENV_ROOT}/bin:$PATH"
+## Custom python installation (locally compiled)
+if [ -L "${UDKIT_BASE}/dist/py-udk" ]; then
+  export PATH="${UDKIT_BASE}/dist/py-udk/bin:$PATH"
+  export LD_LIBRARY_PATH="${UDKIT_BASE}/dist/py-udk/lib:$LD_LIBRARY_PATH"
+  export PKG_CONFIG_PATH="${UDKIT_BASE}/dist/py-udk/lib/pkgconfig:$PKG_CONFIG_PATH"
+fi
 
-  eval "$(pyenv init -)"
-  eval "$(pyenv virtualenv-init -)"
+## Starship prompt configuration
+if [ -n "$(command -v starship 2>/dev/null)" ]; then
+  eval "$(starship init bash)"
 fi
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########

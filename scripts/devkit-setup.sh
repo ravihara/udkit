@@ -47,12 +47,12 @@ _install_openjdk() {
     local version=$2
     local force=$3
 
-    local jdk_base="${UDKIT_BASE}/dist/openjdk"
-    local pkgbase=$(tar_gz_pkgbase $pkgfile)
+    local jdk_base="${UDKIT_BASE}/dist"
+    local pkg_base=$(tar_gz_pkgbase $pkgfile)
 
     mkdir -p $jdk_base
 
-    local jdk_dir="${jdk_base}/${pkgbase}"
+    local jdk_dir="${jdk_base}/jdk-${version}"
     local jdk_bin="${jdk_dir}/bin"
     local jdk_lib="${jdk_dir}/lib"
     local jdk_inc="${jdk_dir}/include"
@@ -64,13 +64,12 @@ _install_openjdk() {
         fi
     else
         echo_info "Force installing Temurin JDK ${version}..."
-        rm -f "${jdk_base}/${version}"
         rm -rf "${jdk_dir}"
     fi
 
     echo_info "Installing Temurin JDK ${version}..."
     tar -xf "${pkgfile}" -C "${jdk_base}" && sync
-    ln -s "${jdk_dir}" "${jdk_base}/${version}"
+    mv "${jdk_base}/${pkg_base}" "${jdk_dir}"
 
     if [ -d "${jdk_bin}" ] && [ -d "${jdk_lib}" ] && [ -d "${jdk_inc}" ]; then
         echo_info "Temurin JDK ${version} is installed successfully."
@@ -85,12 +84,12 @@ _install_nodejs() {
     local version=$2
     local force=$3
 
-    local node_base="${UDKIT_BASE}/dist/nodejs"
-    local pkgbase=$(tar_pkgbase $pkgfile)
+    local node_base="${UDKIT_BASE}/dist"
+    local pkg_base=$(tar_pkgbase $pkgfile)
 
     mkdir -p $node_base
 
-    local node_dir="${node_base}/${version}"
+    local node_dir="${node_base}/node-${version}"
     local node_bin="${node_dir}/bin"
     local node_lib="${node_dir}/lib"
     local node_inc="${node_dir}/include"
@@ -107,7 +106,7 @@ _install_nodejs() {
 
     echo_info "Installing Node.js ${version}..."
     tar -xf "${pkgfile}" -C "${node_base}" && sync
-    mv "${node_base}/${pkgbase}" "${node_dir}"
+    mv "${node_base}/${pkg_base}" "${node_dir}"
 
     if [ -d "${node_bin}" ] && [ -d "${node_lib}" ] && [ -d "${node_inc}" ]; then
         echo_info "Node.js ${version} is installed successfully."
@@ -122,12 +121,12 @@ _install_golang() {
     local version=$2
     local force=$3
 
-    local go_base="${UDKIT_BASE}/dist/golang"
-    local pkgbase=$(tar_gz_pkgbase $pkgfile)
+    local go_base="${UDKIT_BASE}/dist"
+    local pkg_base=$(tar_gz_pkgbase $pkgfile)
 
     mkdir -p $go_base
 
-    local go_dir="${go_base}/${version}"
+    local go_dir="${go_base}/go-${version}"
     local go_bin="${go_dir}/bin"
     local go_lib="${go_dir}/lib"
 
@@ -143,7 +142,7 @@ _install_golang() {
 
     echo_info "Installing Go ${version}..."
     tar -zxf "${pkgfile}" -C "${go_base}" && sync
-    mv "${go_base}/${pkgbase}" "${go_dir}"
+    mv "${go_base}/${pkg_base}" "${go_dir}"
 
     if [ -d "${go_bin}" ] && [ -d "${go_lib}" ]; then
         echo_info "Go ${version} is installed successfully."
@@ -158,12 +157,12 @@ _install_gradle() {
     local version=$2
     local force=$3
 
-    local gradle_base="${UDKIT_BASE}/dist/gradle"
-    local pkgbase=$(zip_pkgbase $pkgfile)
+    local gradle_base="${UDKIT_BASE}/dist"
+    local pkg_base=$(zip_pkgbase $pkgfile)
 
     mkdir -p $gradle_base
 
-    local gradle_dir="${gradle_base}/${version}"
+    local gradle_dir="${gradle_base}/gradle-${version}"
     local gradle_bin="${gradle_dir}/bin"
     local gradle_lib="${gradle_dir}/lib"
 
@@ -179,7 +178,7 @@ _install_gradle() {
 
     echo_info "Installing Gradle ${version}..."
     unzip -qq "${pkgfile}" -d "${gradle_base}" && sync
-    mv "${gradle_base}/${pkgbase}" "${gradle_dir}"
+    mv "${gradle_base}/${pkg_base}" "${gradle_dir}"
 
     if [ -d "${gradle_bin}" ] && [ -d "${gradle_lib}" ]; then
         echo_info "Gradle ${version} is installed successfully."
@@ -194,12 +193,12 @@ _install_maven() {
     local version=$2
     local force=$3
 
-    local maven_base="${UDKIT_BASE}/dist/maven"
-    local pkgbase=$(zip_pkgbase $pkgfile)
+    local maven_base="${UDKIT_BASE}/dist"
+    local pkg_base=$(zip_pkgbase $pkgfile)
 
     mkdir -p $maven_base
 
-    local maven_dir="${maven_base}/${version}"
+    local maven_dir="${maven_base}/mvn-${version}"
     local maven_bin="${maven_dir}/bin"
     local maven_lib="${maven_dir}/lib"
 
@@ -215,7 +214,7 @@ _install_maven() {
 
     echo_info "Installing Maven ${version}..."
     unzip -qq "${pkgfile}" -d "${maven_base}" && sync
-    mv "${maven_base}/${pkgbase}" "${maven_dir}"
+    mv "${maven_base}/${pkg_base}" "${maven_dir}"
 
     if [ -d "${maven_bin}" ] && [ -d "${maven_lib}" ]; then
         echo_info "Maven ${version} is installed successfully."
