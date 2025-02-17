@@ -69,7 +69,10 @@ _install_openjdk() {
 
     echo_info "Installing Temurin JDK ${version}..."
     tar -xf "${pkgfile}" -C "${jdk_base}" && sync
-    mv "${jdk_base}/${pkg_base}" "${jdk_dir}"
+
+    if [ "${jdk_base}/${pkg_base}" != "${jdk_dir}" ]; then
+        mv "${jdk_base}/${pkg_base}" "${jdk_dir}"
+    fi
 
     if [ -d "${jdk_bin}" ] && [ -d "${jdk_lib}" ] && [ -d "${jdk_inc}" ]; then
         echo_info "Temurin JDK ${version} is installed successfully."
@@ -106,7 +109,10 @@ _install_nodejs() {
 
     echo_info "Installing Node.js ${version}..."
     tar -xf "${pkgfile}" -C "${node_base}" && sync
-    mv "${node_base}/${pkg_base}" "${node_dir}"
+
+    if [ "${node_base}/${pkg_base}" != "${node_dir}" ]; then
+        mv "${node_base}/${pkg_base}" "${node_dir}"
+    fi
 
     if [ -d "${node_bin}" ] && [ -d "${node_lib}" ] && [ -d "${node_inc}" ]; then
         echo_info "Node.js ${version} is installed successfully."
@@ -142,7 +148,10 @@ _install_golang() {
 
     echo_info "Installing Go ${version}..."
     tar -zxf "${pkgfile}" -C "${go_base}" && sync
-    mv "${go_base}/${pkg_base}" "${go_dir}"
+
+    if [ "${go_base}/${pkg_base}" != "${go_dir}" ]; then
+        mv "${go_base}/${pkg_base}" "${go_dir}"
+    fi
 
     if [ -d "${go_bin}" ] && [ -d "${go_lib}" ]; then
         echo_info "Go ${version} is installed successfully."
@@ -178,7 +187,10 @@ _install_gradle() {
 
     echo_info "Installing Gradle ${version}..."
     unzip -qq "${pkgfile}" -d "${gradle_base}" && sync
-    mv "${gradle_base}/${pkg_base}" "${gradle_dir}"
+
+    if [ "${gradle_base}/${pkg_base}" != "${gradle_dir}" ]; then
+        mv "${gradle_base}/${pkg_base}" "${gradle_dir}"
+    fi
 
     if [ -d "${gradle_bin}" ] && [ -d "${gradle_lib}" ]; then
         echo_info "Gradle ${version} is installed successfully."
@@ -214,7 +226,10 @@ _install_maven() {
 
     echo_info "Installing Maven ${version}..."
     unzip -qq "${pkgfile}" -d "${maven_base}" && sync
-    mv "${maven_base}/${pkg_base}" "${maven_dir}"
+
+    if [ "${maven_base}/${pkg_base}" != "${maven_dir}" ]; then
+        mv "${maven_base}/${pkg_base}" "${maven_dir}"
+    fi
 
     if [ -d "${maven_bin}" ] && [ -d "${maven_lib}" ]; then
         echo_info "Maven ${version} is installed successfully."

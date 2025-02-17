@@ -15,6 +15,11 @@ fi
 
 source ~/.udkit/funcs.bash
 
+if [[ -d "${UDKIT_BASE}/dist/py-${PY_VERSION}" ]]; then
+  echo_error "Python ${PY_VERSION} is already installed."
+  exit 1
+fi
+
 # Check if running as root
 if [ "$EUID" -eq 0 ]; then
   echo_error "Do not run this script as root or with sudo."
@@ -115,7 +120,7 @@ mkdir -p "$TMP_SRC_DIR"
 tar --extract --directory "$TMP_SRC_DIR" --strip-components=1 --file python.tar.xz
 rm python.tar.xz
 
-cd "$TMP_SRC_DIR"
+pushd "$TMP_SRC_DIR" >/dev/null
 gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
 ./configure \
   --build="$gnuArch" \
@@ -138,35 +143,29 @@ make -j "$nproc" \
   ;
 # https://github.com/docker-library/python/issues/784
 # prevent accidental usage of a system installed libpython of the same version
-rm python
+sync && rm python
 make -j "$nproc" \
   "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
   "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'"
-sync && make install
-sync && cd -
+sync && make install && sync
+popd >/dev/null
 
-cd ${UDKIT_BASE}/dist/py-${PY_VERSION}/bin >/dev/null
+## Setup symlinks and update basic python tools
+pushd ${UDKIT_BASE}/dist >/dev/null
 
-if [[ -L "python" ]]; then
-  rm python
-  ln -s python3 python
-fi
-
-if [[ -L "pip" ]]; then
-  rm pip
-  ln -s pip3 pip
-fi
-
+pushd py-${PY_VERSION}/bin >/dev/null
+ln -s python3 python
 echo "Refreshing python tools..."
-./python3 -m pip install -U --upgrade wheel setuptools pybind11 pip
-
-cd -
+./python -m pip install -U --upgrade wheel setuptools pybind11 pip
+popd >/dev/null
 
 if [[ "$IS_DEFAULT_PY" == "true" ]]; then
   echo "Setting default python version to ${PY_VERSION}"
-  rm -f ${UDKIT_BASE}/dist/py-udk
-  ln -s ${UDKIT_BASE}/dist/py-${PY_VERSION} ${UDKIT_BASE}/dist/py-udk
+  rm -f py-udk
+  ln -s py-${PY_VERSION} py-udk
 fi
+
+popd >/dev/null
 
 rm -rf "$TMP_SRC_DIR"
 echo "All Done."
