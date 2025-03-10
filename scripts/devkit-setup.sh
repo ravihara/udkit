@@ -154,6 +154,7 @@ _install_golang() {
     fi
 
     if [ -d "${go_bin}" ] && [ -d "${go_lib}" ]; then
+        mkdir -p ${go_base}/goext
         echo_info "Go ${version} is installed successfully."
     else
         echo_error "Failed to install Go ${version}."
