@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 export IFS=$(echo -en '\n\b')
 
@@ -63,6 +63,10 @@ script_base=$(udk-get-self-dir $0)
 
 mkdir -p $CA_BASE
 
+## Common / global variables
+root_ca_cert="rootca-cert.pem"
+root_ca_key="rootca-key.pem"
+
 function init_ca() {
     echo -e "${TRML_HL}Entering SSCA setup folder (${CA_BASE})...${TRML_NC}"
     pushd $CA_BASE >/dev/null
@@ -106,14 +110,14 @@ function init_ca() {
     ## Create the rootca certificate
     echo -e "${TRML_HL}Creating root-ca certificate and key pair...${TRML_NC}"
     openssl req -config openssl_rootca.cnf -passin pass:$ROOTCA_PASS -passout pass:$ROOTCA_PASS -subj "$CA_SUBJECT" \
-        -new -x509 -days ${CA_VALID_DAYS} -sha256 -extensions v3_ca -keyout private/rootca.key.pem -out certs/rootca.cert.pem >/dev/null
+        -new -x509 -days ${CA_VALID_DAYS} -sha256 -extensions v3_ca -keyout private/${root_ca_key} -out certs/${root_ca_cert} >/dev/null
 
-    chmod 400 private/rootca.key.pem
-    chmod 444 certs/rootca.cert.pem
+    chmod 400 private/${root_ca_key}
+    chmod 444 certs/${root_ca_cert}
 
     ## Verify the rootca certificate
     echo -e "${TRML_HL}Verifying root-ca certificate...${TRML_NC}"
-    openssl x509 -noout -text -passin pass:$ROOTCA_PASS -in certs/rootca.cert.pem >/dev/null
+    openssl x509 -noout -text -passin pass:$ROOTCA_PASS -in certs/${root_ca_cert} >/dev/null
 
     ## Exit the root-ca folder
     popd >/dev/null
@@ -123,16 +127,16 @@ function init_ca() {
 
     ## Create the certificate chain file
     echo -e "${TRML_HL}Creating root-ca file...${TRML_NC}"
-    cp rootca/certs/rootca.cert.pem dist/root-ca.cert.pem && sync
-    chmod 444 dist/root-ca.cert.pem
+    cp rootca/certs/${root_ca_cert} dist/${root_ca_cert} && sync
+    chmod 444 dist/${root_ca_cert}
 
     ## Create certificate chain trust-store (JKS)
     echo -e "${TRML_HL}Creating root-ca trust-store file...${TRML_NC}"
-    keytool -importcert -noprompt -keystore dist/root-ca.jks -storepass $ROOTCA_PASS -alias "ssca-rootca" -trustcacerts -file dist/root-ca.cert.pem && sync
+    keytool -importcert -noprompt -keystore dist/root-ca.jks -storepass $ROOTCA_PASS -alias "ssca-rootca" -trustcacerts -file dist/${root_ca_cert} && sync
 
-    ## Create dhparam file
-    echo -e "${TRML_HL}Creating dhparam file...${TRML_NC}"
-    openssl dhparam -out dist/dhparam.pem 4096
+    ### Create dhparam file
+    #echo -e "${TRML_HL}Creating dhparam file...${TRML_NC}"
+    #openssl dhparam -out dist/dhparam.pem 4096
 
     ## Exit the setup base folder
     popd >/dev/null
@@ -149,11 +153,13 @@ function create_cert() {
         exit 1
     fi
 
+    local server_cert="$(echo $CA_CERT_FQDN | sed -e 's/\./-/g')"
+
     ## Enter the setup base folder
     echo -e "${TRML_HL}Entering SSCA setup folder (${CA_BASE})...${TRML_NC}"
     pushd $CA_BASE >/dev/null
 
-    if [ -f "rootca/private/${CA_CERT_FQDN}.key.pem" ]; then
+    if [ -f "rootca/private/${server_cert}-key.pem" ]; then
         echo -e "Key file for '$CA_CERT_FQDN' already exists! You might have already created required certificate files."
         popd >/dev/null
 
@@ -162,22 +168,22 @@ function create_cert() {
 
     echo -e "Creating csr and key pair for ${TRML_HL}${CA_CERT_FQDN}...${TRML_NC}"
     openssl req -config rootca/openssl_serv.cnf -passin pass:$CA_CERT_PASS -passout pass:$CA_CERT_PASS \
-        -extensions server_cert -subj "$CA_CERT_SUBJECT" -keyout rootca/private/${CA_CERT_FQDN}.key.pem -new -sha256 \
-        -out rootca/csr/${CA_CERT_FQDN}.csr.pem >/dev/null
+        -extensions server_cert -subj "$CA_CERT_SUBJECT" -keyout rootca/private/${server_cert}-key.pem -new -sha256 \
+        -out rootca/csr/${server_cert}-csr.pem >/dev/null
 
-    chmod 400 rootca/private/${CA_CERT_FQDN}.key.pem
+    chmod 400 rootca/private/${server_cert}-key.pem
 
     echo -e "Creating root-ca self-signed certificate for ${TRML_HL}${CA_CERT_FQDN}...${TRML_NC}"
     openssl ca -config rootca/openssl_serv.cnf -batch -extensions server_cert -days ${CA_CERT_VALID_DAYS} -notext -md sha256 \
-        -passin pass:$ROOTCA_PASS -in rootca/csr/${CA_CERT_FQDN}.csr.pem -out rootca/certs/${CA_CERT_FQDN}.cert.pem >/dev/null
+        -passin pass:$ROOTCA_PASS -in rootca/csr/${server_cert}-csr.pem -out rootca/certs/${server_cert}-cert.pem >/dev/null
 
-    chmod 444 rootca/certs/${CA_CERT_FQDN}.cert.pem
+    chmod 444 rootca/certs/${server_cert}-cert.pem
 
     echo -e "${TRML_HL}Verifying certificate...${TRML_NC}"
-    openssl x509 -noout -text -passin pass:$CA_CERT_PASS -in rootca/certs/${CA_CERT_FQDN}.cert.pem >/dev/null
+    openssl x509 -noout -text -passin pass:$CA_CERT_PASS -in rootca/certs/${server_cert}-cert.pem >/dev/null
 
     echo -e "${TRML_HL}Validating certificate against root-ca...${TRML_NC}"
-    is_cert_ok="$(openssl verify -CAfile dist/root-ca.cert.pem rootca/certs/${CA_CERT_FQDN}.cert.pem | egrep -i "${CA_CERT_FQDN}.cert.pem: OK" | egrep -v "egrep")"
+    is_cert_ok="$(openssl verify -CAfile dist/${root_ca_cert} rootca/certs/${server_cert}-cert.pem | grep -E -i "${server_cert}-cert.pem: OK" | grep -v "grep")"
 
     if [ -z "$is_cert_ok" ]; then
         echo -e "Something wrong happened while creating certificate for ${CA_CERT_FQDN}!"
@@ -187,24 +193,24 @@ function create_cert() {
     fi
 
     rm -f dist/${CA_CERT_FQDN}.*
-    cp rootca/certs/${CA_CERT_FQDN}.cert.pem dist/
-    openssl rsa -passin pass:$CA_CERT_PASS -in rootca/private/${CA_CERT_FQDN}.key.pem -out dist/${CA_CERT_FQDN}.key.pem && sync
-    cat dist/${CA_CERT_FQDN}.cert.pem dist/${CA_CERT_FQDN}.key.pem >dist/${CA_CERT_FQDN}.all.pem
+    cp rootca/certs/${server_cert}-cert.pem dist/
+    openssl rsa -passin pass:$CA_CERT_PASS -in rootca/private/${server_cert}-key.pem -out dist/${server_cert}-key.pem && sync
+    cat dist/${server_cert}-cert.pem dist/${server_cert}-key.pem >dist/${server_cert}-all.pem
 
     echo -e "${TRML_HL}Exporting combined cert+key file to pkcs12 format...${TRML_NC}"
-    openssl pkcs12 -export -passin pass:$CA_CERT_PASS -in dist/${CA_CERT_FQDN}.all.pem -passout pass:$CA_CERT_PASS -out dist/${CA_CERT_FQDN}.pkcs12
+    openssl pkcs12 -export -passin pass:$CA_CERT_PASS -in dist/${server_cert}-all.pem -passout pass:$CA_CERT_PASS -out dist/${server_cert}.pkcs12
 
     if [ -n "$JAVA_KEYTOOL" ]; then
         echo -e "${TRML_HL}Creating Java KeyStore File...${TRML_NC}"
-        keytool -importkeystore -noprompt -srcstoretype pkcs12 -srcalias "1" -srckeystore dist/${CA_CERT_FQDN}.pkcs12 -srcstorepass $CA_CERT_PASS \
-            -destkeystore dist/${CA_CERT_FQDN}.jks -deststoretype pkcs12 -destalias "${CA_CERT_FQDN}" -deststorepass $CA_CERT_PASS && sync
+        keytool -importkeystore -noprompt -srcstoretype pkcs12 -srcalias "1" -srckeystore dist/${server_cert}.pkcs12 -srcstorepass $CA_CERT_PASS \
+            -destkeystore dist/${server_cert}.jks -deststoretype pkcs12 -destalias "${CA_CERT_FQDN}" -deststorepass $CA_CERT_PASS && sync
 
         echo -e "${TRML_HL}Adding root-ca certificates to Java KeyStore File...${TRML_NC}"
-        keytool -importcert -noprompt -keystore dist/${CA_CERT_FQDN}.jks -storepass $CA_CERT_PASS -alias "serv-rootca" \
-            -trustcacerts -file dist/root-ca.cert.pem && sync
+        keytool -importcert -noprompt -keystore dist/${server_cert}.jks -storepass $CA_CERT_PASS -alias "serv-rootca" \
+            -trustcacerts -file dist/${root_ca_cert} && sync
     fi
 
-    rm -f dist/${CA_CERT_FQDN}.all.pem
+    rm -f dist/${server_cert}-all.pem
 
     ## Exit the setup base folder
     popd >/dev/null

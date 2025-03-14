@@ -17,12 +17,12 @@ RANDFILE          = $dir/private/.rand
 copy_extensions   = copy
 
 # The root key and root certificate.
-private_key       = $dir/private/rootca.key.pem
-certificate       = $dir/certs/rootca.cert.pem
+private_key       = $dir/private/rootca-key.pem
+certificate       = $dir/certs/rootca-cert.pem
 
 # For certificate revocation lists.
 crlnumber         = $dir/crlnumber
-crl               = $dir/crl/rootca.crl.pem
+crl               = $dir/crl/rootca-crl.pem
 crl_extensions    = crl_ext
 default_crl_days  = 30
 
@@ -117,7 +117,7 @@ basicConstraints = CA:FALSE
 nsCertType = server
 nsComment = "OpenSSL Generated Server Certificate"
 subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer:always
+# authorityKeyIdentifier = keyid,issuer:always
 keyUsage = critical, digitalSignature, keyEncipherment
 extendedKeyUsage = serverAuth
 subjectAltName=${ENV::CA_CERT_SAN}
