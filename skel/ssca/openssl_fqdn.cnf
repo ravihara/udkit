@@ -1,5 +1,5 @@
 # OpenSSL intermediate CA configuration file.
-# Copy to `/rootca/openssl_serv.cnf`.
+# Copy to `ssl/openssl_fqdn.cnf`.
 
 [ ca ]
 # `man ca`
@@ -7,7 +7,7 @@ default_ca = CA_default
 
 [ CA_default ]
 # Directory and file locations.
-dir               = ${ENV::CA_BASE}/rootca
+dir               = ${ENV::SSCA_BASE}/ssl
 certs             = $dir/certs
 crl_dir           = $dir/crl
 new_certs_dir     = $dir/newcerts
@@ -107,9 +107,10 @@ basicConstraints = CA:FALSE
 nsCertType = client, email
 nsComment = "OpenSSL Generated Client Certificate"
 subjectKeyIdentifier = hash
-authorityKeyIdentifier = keyid,issuer
+# authorityKeyIdentifier = keyid,issuer
 keyUsage = critical, nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, emailProtection
+subjectAltName=${ENV::CA_CERT_SAN}
 
 [ server_cert ]
 # Extensions for server certificates (`man x509v3_config`).
