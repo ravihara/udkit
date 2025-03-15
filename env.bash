@@ -12,7 +12,7 @@ export TRML_NC='\033[0m'
 
 ## Set default editor (Ex., for direnv)
 if [ -z "$EDITOR" ]; then
-  export EDITOR=vim
+	export EDITOR=vim
 fi
 
 ## Terminal settings for system debug related params
@@ -33,19 +33,29 @@ export COMPOSE_DOCKER_CLI_BUILD=0
 
 ## Custom python installation (locally compiled)
 if [ -L "${UDKIT_BASE}/dist/py-udk" ]; then
-  export PATH="${UDKIT_BASE}/dist/py-udk/bin:$PATH"
-  export LD_LIBRARY_PATH="${UDKIT_BASE}/dist/py-udk/lib:$LD_LIBRARY_PATH"
-  export PKG_CONFIG_PATH="${UDKIT_BASE}/dist/py-udk/lib/pkgconfig:$PKG_CONFIG_PATH"
+	export PATH="${UDKIT_BASE}/dist/py-udk/bin:$PATH"
+	export LD_LIBRARY_PATH="${UDKIT_BASE}/dist/py-udk/lib:$LD_LIBRARY_PATH"
+	export PKG_CONFIG_PATH="${UDKIT_BASE}/dist/py-udk/lib/pkgconfig:$PKG_CONFIG_PATH"
 fi
 
 ## Starship prompt configuration
 if [ -n "$(command -v starship 2>/dev/null)" ]; then
-  eval "$(starship init bash)"
+	eval "$(starship init bash)"
+fi
+
+# User specific aliases and functions
+if [ -d ~/.bashrc.d ]; then
+	for rc in ~/.bashrc.d/*; do
+		if [ -f "$rc" ]; then
+			. "$rc"
+		fi
+	done
+	unset rc
 fi
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
 ### direnv configuration - This should be at the end ###
 if [ -n "$(command -v direnv 2>/dev/null)" ]; then
-  export DIRENV_LOG_FORMAT=""
-  eval "$(direnv hook bash)"
+	export DIRENV_LOG_FORMAT=""
+	eval "$(direnv hook bash)"
 fi
