@@ -141,21 +141,25 @@ function gen_rootca() {
 
 function gen_machine_certificate() {
     local cert_type=${1:-"server"}
-    local base_name="$(echo $CA_CERT_FQDN | sed -e 's/\./-/g')"
-    local cert_name="${base_name}-${cert_type}-cert"
-    local csr_name="${base_name}-${cert_type}-csr"
-    local key_name="${base_name}-${cert_type}-key"
-
-    if [ "$cert_type" == "server" ]; then
-        local cert_subj="/C=${CA_COUNTRY}/ST=${CA_STATE}/L=${CA_LOCATION}/O=${CA_ORGANIZATION}/OU=${CA_ORG_UNIT}/CN=${CA_CERT_FQDN}"
-    else
-        local cert_subj="/CN=$(hostnamectl --static)"
-    fi
 
     ## Check for valid certificate type
     if [ "$cert_type" != "server" ] && [ "$cert_type" != "client" ]; then
         echo -e "Certificate type '$cert_type' is not supported! It should be 'server' or 'client'."
         exit 1
+    fi
+
+    if [ "$cert_type" == "server" ]; then
+        local cert_server="$(echo $CA_CERT_FQDN | sed -e 's/\./-/g')"
+        local cert_subj="/C=${CA_COUNTRY}/ST=${CA_STATE}/L=${CA_LOCATION}/O=${CA_ORGANIZATION}/OU=${CA_ORG_UNIT}/CN=${CA_CERT_FQDN}"
+        local cert_name="${cert_server}-${cert_type}-cert"
+        local csr_name="${cert_server}-${cert_type}-csr"
+        local key_name="${cert_server}-${cert_type}-key"
+    else
+        local cert_client="$(hostnamectl --static)"
+        local cert_subj="/CN=${cert_client}"
+        local cert_name="${cert_client}-${cert_type}-cert"
+        local csr_name="${cert_client}-${cert_type}-csr"
+        local key_name="${cert_client}-${cert_type}-key"
     fi
 
     echo -e "Entering SSCA setup folder (${SSCA_BASE})..."
