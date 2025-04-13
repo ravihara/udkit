@@ -19,9 +19,6 @@ UDK_DIST="${HOME}/.udkit/dist"
 
 mkdir -p $CACHE_DIR $UDK_DIST
 
-## Placeholder for apt-mark
-savedAptMark=""
-
 _valid_cached_file() {
     filename=$1
 
@@ -32,11 +29,11 @@ _valid_cached_file() {
         local time_diff=$((current_time - last_modified))
         local days_diff=$((time_diff / 86400))
 
-        if [ $days_diff -lt 30 ]; then
+        if [ $days_diff -lt 15 ]; then
             echo_info "Found already cached file $filename."
             return 0
         else
-            echo_info "Cached file $filename is older than 30 days. Redownloading..."
+            echo_info "Cached file $filename is older than 15 days. Downloading again..."
             rm -f "${CACHE_DIR}/${filename}"
         fi
     fi
@@ -45,11 +42,10 @@ _valid_cached_file() {
 }
 
 _setup_pydev_packages() {
-    savedAptMark="$(sudo apt-mark showmanual)"
-
     sudo apt-get update
     sudo apt-get upgrade -y
-    sudo apt-get install -y --no-install-recommends \
+
+    sudo apt-get install -y \
         apt-transport-https \
         dpkg-dev \
         gcc \
@@ -69,17 +65,11 @@ _setup_pydev_packages() {
         make \
         tk-dev \
         uuid-dev \
-        zlib1g-dev
-}
+        zlib1g-dev && sync
 
-_teardown_pydev_packages() {
-    sudo apt-mark auto '.*' >/dev/null
-
-    if [ -n "$savedAptMark" ]; then
-        sudo apt-mark manual ${savedAptMark}
-    fi
-
-    sudo apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+    sudo apt-get clean -y
+    sudo apt-get autoremove --purge -y
+    sudo dpkg --configure -a
     sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 }
 
@@ -105,7 +95,6 @@ _install_python() {
     export GNUPGHOME
 
     ## Download python.targ.xz.asc into tmpdir
-
     curl -o "${tmpdir}/${pkg_bname}.asc" -L "https://www.python.org/ftp/python/${version}/${pkg_bname}.asc" || {
         echo_error "Failed to download python GPG signature."
         return 1
@@ -144,10 +133,7 @@ _install_python() {
         "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
         python
 
-    sync && make install
-
-    ## Install uv package manager
-    curl -LsSf https://astral.sh/uv/install.sh | sh
+    sync && make install && sync
     cd -
 
     rm -rf "${tmpdir}" "${GNUPGHOME}"
@@ -159,7 +145,6 @@ _install_python() {
         -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
         \) -exec rm -rf '{}' + \
         ;
-    _teardown_pydev_packages
 
     if [ -d "${python_bin}" ] && [ -d "${python_lib}" ] && [ -d "${python_inc}" ]; then
         export PATH="${python_bin}:${PATH}"
