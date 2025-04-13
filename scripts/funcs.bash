@@ -73,6 +73,14 @@ tar_gz_pkgbase() {
     echo "$pkgbase"
 }
 
+tar_xz_pkgbase() {
+    filename=$1
+
+    # Extract the root directory name from the tar file
+    local pkgbase=$(tar -Jtf "${filename}" | head -1 | awk -F "/" {'print $1'})
+    echo "$pkgbase"
+}
+
 tar_pkgbase() {
     filename=$1
 

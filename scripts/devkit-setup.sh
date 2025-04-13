@@ -1,4 +1,5 @@
-#!/bin/bash -e
+#!/bin/bash
+set -eu
 
 ## Get the current script dir
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
@@ -46,7 +47,8 @@ _valid_cached_file() {
 _setup_pydev_packages() {
     savedAptMark="$(sudo apt-mark showmanual)"
 
-    sudo apt-get update && apt-get upgrade -y
+    sudo apt-get update
+    sudo apt-get upgrade -y
     sudo apt-get install -y --no-install-recommends \
         apt-transport-https \
         dpkg-dev \
@@ -86,6 +88,7 @@ _install_python() {
     local version=$2
     local force=$3
 
+    local pkg_bname=$(basename $pkgfile)
     local pkg_base=$(tar_xz_pkgbase $pkgfile)
     local python_dir="${UDK_DIST}/py-${version}"
 
@@ -113,16 +116,18 @@ _install_python() {
     export GNUPGHOME
 
     ## Download python.targ.xz.asc into tmpdir
-    curl -o "${tmpdir}/${pkg_base}.asc" -L "https://www.python.org/ftp/python/${version}/${pkg_base}.asc" || {
+
+    curl -o "${tmpdir}/${pkg_bname}.asc" -L "https://www.python.org/ftp/python/${version}/${pkg_bname}.asc" || {
         echo_error "Failed to download python GPG signature."
         return 1
     }
 
     gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "${GPG_KEY}"
-    gpg --batch --verify "${tmpdir}/${pkg_base}.asc" "${pkgfile}"
+    gpg --batch --verify "${tmpdir}/${pkg_bname}.asc" "${pkgfile}"
     { command -v gpgconf >/dev/null && gpgconf --kill all || :; }
 
-    tar -xJC ${tmpdir}/python --strip-components=1 -f ${pkgfile} && sync
+    mkdir -p ${tmpdir}/python
+    tar --extract --directory ${tmpdir}/python --strip-components=1 --file ${pkgfile} && sync
     cd ${tmpdir}/python
 
     gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
@@ -173,7 +178,6 @@ _install_python() {
         export PKG_CONFIG_PATH="${python_lib}/pkgconfig:${PKG_CONFIG_PATH}"
         export PYTHONDONTWRITEBYTECODE=1
 
-        ldconfig
         python3 --version
         pip3 --version
         pip3 install \
@@ -688,7 +692,7 @@ install_starship() {
 setup_devkit() {
     local devkit=$1
     local version=$2
-    local force=$3
+    local force=${3:-false}
 
     if [[ -z $(command -v direnv 2>/dev/null) ]]; then
         install_direnv
@@ -723,6 +727,11 @@ setup_devkit() {
         ;;
     esac
 }
+
+## Parse cli arguments
+FORCE=false
+KIT_NAME=""
+KIT_VERSION=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in

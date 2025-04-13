@@ -46,6 +46,15 @@ if [ -n "$(command -v starship 2>/dev/null)" ]; then
 	eval "$(starship init bash)"
 fi
 
+## Custom python installation (locally compiled)
+py_udkdir="${HOME}/.udkit/dist/py-udk"
+
+if [ -L "${py_udkdir}" ]; then
+	export PATH="${py_udkdir}/bin:$PATH"
+	export LD_LIBRARY_PATH="${py_udkdir}/lib:$LD_LIBRARY_PATH"
+	export PKG_CONFIG_PATH="${py_udkdir}/lib/pkgconfig:$PKG_CONFIG_PATH"
+fi
+
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
 ### direnv configuration - This should be at the end ###
 if [ -n "$(command -v direnv 2>/dev/null)" ]; then
