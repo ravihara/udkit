@@ -2,23 +2,21 @@
 
 ## Get the current script dir
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
-UDKIT_BASE=$(cd -- "$(dirname -- "${SCRIPT_DIR}")" &>/dev/null && pwd)
-CACHE_DIR="${UDKIT_BASE}/cache"
-
-source ${UDKIT_BASE}/funcs.bash
-mkdir -p $CACHE_DIR
-
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo_error "Do not run this script as root or with sudo."
-    exit 1
-fi
+source ${SCRIPT_DIR}/funcs.bash
 
 ## Check for atleast two arguments
 if [[ $# -lt 2 ]]; then
     echo_error "Usage: $(basename $0) --kit=<devkit> --version=<version> [--force=true|false]"
     exit 1
 fi
+
+CACHE_DIR="${HOME}/.udkit/cache"
+UDK_DIST="${HOME}/.udkit/dist"
+
+mkdir -p $CACHE_DIR $UDK_DIST
+
+## Placeholder for apt-mark
+savedAptMark=""
 
 _valid_cached_file() {
     filename=$1
@@ -42,17 +40,166 @@ _valid_cached_file() {
     return 1
 }
 
+_setup_pydev_packages() {
+    savedAptMark="$(sudo apt-mark showmanual)"
+
+    sudo apt-get update && apt-get upgrade -y
+    sudo apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        dpkg-dev \
+        gcc \
+        git \
+        libbluetooth-dev \
+        libbz2-dev \
+        libc6-dev \
+        libdb-dev \
+        libffi-dev \
+        libgdbm-dev \
+        libkrb5-dev \
+        liblzma-dev \
+        libncursesw5-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libssl-dev \
+        make \
+        tk-dev \
+        uuid-dev \
+        zlib1g-dev
+}
+
+_teardown_pydev_packages() {
+    sudo apt-mark auto '.*' >/dev/null
+    sudo apt-mark manual ${savedAptMark}
+    sudo apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
+    sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
+}
+
+_install_python() {
+    local pkgfile=$1
+    local version=$2
+    local force=$3
+
+    local pkg_base=$(tar_xz_pkgbase $pkgfile)
+    local python_dir="${UDK_DIST}/py-${version}"
+
+    local python_bin="${python_dir}/bin"
+    local python_lib="${python_dir}/lib"
+    local python_inc="${python_dir}/include"
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${python_dir}" ]; then
+            echo_info "Python ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Python ${version}..."
+        rm -rf "${python_dir}"
+    fi
+
+    echo_info "Installing Python ${version}..."
+    _setup_pydev_packages
+
+    tmpdir=$(mktemp -d --suffix=-src)
+    tar -xf "${pkgfile}" -C "${tmpdir}" && sync
+
+    GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
+    GNUPGHOME="$(mktemp -d --suffix=-gnupg)"
+
+    export GNUPGHOME
+
+    ## Download python.targ.xz.asc into tmpdir
+    curl -o "${tmpdir}/${pkg_base}.asc" -L "https://www.python.org/ftp/python/${version}/${pkg_base}.asc" || {
+        echo_error "Failed to download python GPG signature."
+        return 1
+    }
+
+    gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "${GPG_KEY}"
+    gpg --batch --verify "${tmpdir}/${pkg_base}.asc" "${tmpdir}/${pkg_base}"
+    { command -v gpgconf >/dev/null && gpgconf --kill all || :; }
+    sync
+
+    tar -xJC ${tmpdir}/python --strip-components=1 -f ${pkgfile} && sync
+    cd ${tmpdir}/python
+
+    gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)"
+    ./configure \
+        --build="$gnuArch" \
+        --enable-loadable-sqlite-extensions \
+        --enable-optimizations \
+        --enable-option-checking=fatal \
+        --enable-shared \
+        --with-lto \
+        --with-ensurepip \
+        --prefix=${python_dir}
+
+    EXTRA_CFLAGS="$(dpkg-buildflags --get CFLAGS)"
+    LDFLAGS="$(dpkg-buildflags --get LDFLAGS)"
+    LDFLAGS="${LDFLAGS:--Wl},--strip-all"
+
+    make -j "$(nproc)" \
+        "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
+        "LDFLAGS=${LDFLAGS:-}"
+
+    sync && rm python
+    make -j "$(nproc)" \
+        "EXTRA_CFLAGS=${EXTRA_CFLAGS:-}" \
+        "LDFLAGS=${LDFLAGS:--Wl},-rpath='\$\$ORIGIN/../lib'" \
+        python
+
+    sync && make install
+
+    ## Install uv package manager
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    cd -
+
+    rm -rf "${tmpdir}" "${GNUPGHOME}" "${tmpdir}/${pkg_base}.asc"
+    unset GNUPGHOME
+    find ${python_dir} -depth \
+        \( \
+        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+        -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name 'libpython*.a' \) \) \
+        \) -exec rm -rf '{}' + \
+        ;
+    _teardown_pydev_packages
+
+    if [ -d "${python_bin}" ] && [ -d "${python_lib}" ] && [ -d "${python_inc}" ]; then
+        export PATH="${python_bin}:${PATH}"
+        export LD_LIBRARY_PATH="${python_lib}:${LD_LIBRARY_PATH}"
+        export PKG_CONFIG_PATH="${python_lib}/pkgconfig:${PKG_CONFIG_PATH}"
+        export PYTHONDONTWRITEBYTECODE=1
+
+        ldconfig
+        python3 --version
+        pip3 --version
+        pip3 install \
+            --disable-pip-version-check \
+            --no-cache-dir \
+            --no-compile \
+            setuptools \
+            wheel
+
+        for src in idle3 pip3 pydoc3 python3 python3-config; do
+            dst="$(echo "${src}" | tr -d 3)"
+            [ -s "${python_bin}/${src}" ]
+            [ ! -e "${python_bin}/${dst}" ]
+            ln -svT "${src}" "${python_bin}/${dst}"
+        done
+
+        echo_info "Python ${version} is installed successfully."
+    else
+        echo_error "Failed to install Python ${version}."
+        return 1
+    fi
+}
+
 _install_openjdk() {
     local pkgfile=$1
     local version=$2
     local force=$3
 
-    local jdk_base="${UDKIT_BASE}/dist"
     local pkg_base=$(tar_gz_pkgbase $pkgfile)
+    local jdk_dir="${UDK_DIST}/jdk-${version}"
 
-    mkdir -p $jdk_base
-
-    local jdk_dir="${jdk_base}/jdk-${version}"
     local jdk_bin="${jdk_dir}/bin"
     local jdk_lib="${jdk_dir}/lib"
     local jdk_inc="${jdk_dir}/include"
@@ -68,10 +215,10 @@ _install_openjdk() {
     fi
 
     echo_info "Installing Temurin JDK ${version}..."
-    tar -xf "${pkgfile}" -C "${jdk_base}" && sync
+    tar -xf "${pkgfile}" -C "${UDK_DIST}" && sync
 
-    if [ "${jdk_base}/${pkg_base}" != "${jdk_dir}" ]; then
-        mv "${jdk_base}/${pkg_base}" "${jdk_dir}"
+    if [ "${UDK_DIST}/${pkg_base}" != "${jdk_dir}" ]; then
+        mv "${UDK_DIST}/${pkg_base}" "${jdk_dir}"
     fi
 
     if [ -d "${jdk_bin}" ] && [ -d "${jdk_lib}" ] && [ -d "${jdk_inc}" ]; then
@@ -87,12 +234,9 @@ _install_nodejs() {
     local version=$2
     local force=$3
 
-    local node_base="${UDKIT_BASE}/dist"
     local pkg_base=$(tar_pkgbase $pkgfile)
+    local node_dir="${UDK_DIST}/node-${version}"
 
-    mkdir -p $node_base
-
-    local node_dir="${node_base}/node-${version}"
     local node_bin="${node_dir}/bin"
     local node_lib="${node_dir}/lib"
     local node_inc="${node_dir}/include"
@@ -108,10 +252,10 @@ _install_nodejs() {
     fi
 
     echo_info "Installing Node.js ${version}..."
-    tar -xf "${pkgfile}" -C "${node_base}" && sync
+    tar -xf "${pkgfile}" -C "${UDK_DIST}" && sync
 
-    if [ "${node_base}/${pkg_base}" != "${node_dir}" ]; then
-        mv "${node_base}/${pkg_base}" "${node_dir}"
+    if [ "${UDK_DIST}/${pkg_base}" != "${node_dir}" ]; then
+        mv "${UDK_DIST}/${pkg_base}" "${node_dir}"
     fi
 
     if [ -d "${node_bin}" ] && [ -d "${node_lib}" ] && [ -d "${node_inc}" ]; then
@@ -127,12 +271,9 @@ _install_golang() {
     local version=$2
     local force=$3
 
-    local go_base="${UDKIT_BASE}/dist"
     local pkg_base=$(tar_gz_pkgbase $pkgfile)
+    local go_dir="${UDK_DIST}/go-${version}"
 
-    mkdir -p $go_base
-
-    local go_dir="${go_base}/go-${version}"
     local go_bin="${go_dir}/bin"
     local go_lib="${go_dir}/lib"
 
@@ -147,14 +288,14 @@ _install_golang() {
     fi
 
     echo_info "Installing Go ${version}..."
-    tar -zxf "${pkgfile}" -C "${go_base}" && sync
+    tar -zxf "${pkgfile}" -C "${UDK_DIST}" && sync
 
-    if [ "${go_base}/${pkg_base}" != "${go_dir}" ]; then
-        mv "${go_base}/${pkg_base}" "${go_dir}"
+    if [ "${UDK_DIST}/${pkg_base}" != "${go_dir}" ]; then
+        mv "${UDK_DIST}/${pkg_base}" "${go_dir}"
     fi
 
     if [ -d "${go_bin}" ] && [ -d "${go_lib}" ]; then
-        mkdir -p ${go_base}/goext
+        mkdir -p ${UDK_DIST}/goext
         echo_info "Go ${version} is installed successfully."
     else
         echo_error "Failed to install Go ${version}."
@@ -167,12 +308,9 @@ _install_gradle() {
     local version=$2
     local force=$3
 
-    local gradle_base="${UDKIT_BASE}/dist"
     local pkg_base=$(zip_pkgbase $pkgfile)
+    local gradle_dir="${UDK_DIST}/gradle-${version}"
 
-    mkdir -p $gradle_base
-
-    local gradle_dir="${gradle_base}/gradle-${version}"
     local gradle_bin="${gradle_dir}/bin"
     local gradle_lib="${gradle_dir}/lib"
 
@@ -187,10 +325,10 @@ _install_gradle() {
     fi
 
     echo_info "Installing Gradle ${version}..."
-    unzip -qq "${pkgfile}" -d "${gradle_base}" && sync
+    unzip -qq "${pkgfile}" -d "${UDK_DIST}" && sync
 
-    if [ "${gradle_base}/${pkg_base}" != "${gradle_dir}" ]; then
-        mv "${gradle_base}/${pkg_base}" "${gradle_dir}"
+    if [ "${UDK_DIST}/${pkg_base}" != "${gradle_dir}" ]; then
+        mv "${UDK_DIST}/${pkg_base}" "${gradle_dir}"
     fi
 
     if [ -d "${gradle_bin}" ] && [ -d "${gradle_lib}" ]; then
@@ -206,12 +344,9 @@ _install_maven() {
     local version=$2
     local force=$3
 
-    local maven_base="${UDKIT_BASE}/dist"
     local pkg_base=$(zip_pkgbase $pkgfile)
+    local maven_dir="${UDK_DIST}/mvn-${version}"
 
-    mkdir -p $maven_base
-
-    local maven_dir="${maven_base}/mvn-${version}"
     local maven_bin="${maven_dir}/bin"
     local maven_lib="${maven_dir}/lib"
 
@@ -226,10 +361,10 @@ _install_maven() {
     fi
 
     echo_info "Installing Maven ${version}..."
-    unzip -qq "${pkgfile}" -d "${maven_base}" && sync
+    unzip -qq "${pkgfile}" -d "${UDK_DIST}" && sync
 
-    if [ "${maven_base}/${pkg_base}" != "${maven_dir}" ]; then
-        mv "${maven_base}/${pkg_base}" "${maven_dir}"
+    if [ "${UDK_DIST}/${pkg_base}" != "${maven_dir}" ]; then
+        mv "${UDK_DIST}/${pkg_base}" "${maven_dir}"
     fi
 
     if [ -d "${maven_bin}" ] && [ -d "${maven_lib}" ]; then
@@ -240,32 +375,70 @@ _install_maven() {
     fi
 }
 
-# Function to download Temurin JDK
-setup_openjdk() {
+# Function to setup Python for build
+setup_python() {
     local version=$1
     local force=$2
+    local arch=""
 
     if [[ -z $version ]]; then
-        echo_error "Usage: $(basename $0) openjdk <version>"
+        echo_error "Usage: setup_python <version>"
         return 1
     fi
 
-    # Detect OS and architecture
-    local os=""
-    local arch=""
-
-    case "$(uname -s)" in
-    Linux) os="linux" ;;
-    Darwin) os="mac" ;;
+    case "$(uname -m)" in
+    x86_64) arch="x86_64" ;;
+    arm64 | aarch64) arch="aarch64" ;;
     *)
-        echo_error "Unsupported OS: $(uname -s)"
+        echo_error "Unsupported architecture: $(uname -m)"
         return 1
         ;;
     esac
 
+    # Construct the download URL
+    local base_url="https://www.python.org/ftp/python"
+    local filename="Python-${version}.tar.xz"
+    local url="${base_url}/${version}/${filename}"
+
+    # Check if the URL is valid
+    if ! is_url_valid "${url}"; then
+        echo_error "Invalid download URL: ${url}"
+        return 1
+    fi
+
+    # Check for cached file or, download afresh
+    if ! _valid_cached_file "${filename}"; then
+        echo_info "Downloading Python version ${version} for linux-${arch}..."
+        curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
+            echo_error "Failed to download from ${url}"
+            return 1
+        }
+
+        echo_info "Download completed. File: ${filename}"
+    else
+        echo_info "Using cached Python version ${version} package for linux-${arch}..."
+    fi
+
+    filename="${CACHE_DIR}/${filename}"
+
+    # Install the Python tarball
+    _install_python "${filename}" "${version}" "${force}"
+}
+
+# Function to download Temurin JDK
+setup_openjdk() {
+    local version=$1
+    local force=$2
+    local arch=""
+
+    if [[ -z $version ]]; then
+        echo_error "Usage: setup_openjdk <version>"
+        return 1
+    fi
+
     case "$(uname -m)" in
     x86_64) arch="x64" ;;
-    aarch64 | arm64) arch="aarch64" ;;
+    arm64 | aarch64) arch="aarch64" ;;
     *)
         echo_error "Unsupported architecture: $(uname -m)"
         return 1
@@ -276,8 +449,8 @@ setup_openjdk() {
     local base_url="https://api.adoptium.net/v3/binary/latest"
     local package_type="jdk"
     local jvm_impl="hotspot"
-    local url="${base_url}/${version}/ga/${os}/${arch}/$package_type/${jvm_impl}/normal/adoptium"
-    local filename="temurin-jdk-${version}-${os}-${arch}.tar.gz"
+    local url="${base_url}/${version}/ga/linux/${arch}/$package_type/${jvm_impl}/normal/adoptium"
+    local filename="temurin-jdk-${version}-linux-${arch}.tar.gz"
 
     # Check if URL is valid
     if ! is_url_valid "${url}"; then
@@ -287,7 +460,7 @@ setup_openjdk() {
 
     # Check for cached file or, download afresh
     if ! _valid_cached_file "${filename}"; then
-        echo_info "Downloading Temurin JDK ${version} for ${os}-${arch}..."
+        echo_info "Downloading Temurin JDK ${version} for linux-${arch}..."
         curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
             echo_error "Failed to download from ${url}"
             return 1
@@ -295,7 +468,7 @@ setup_openjdk() {
 
         echo_info "Download completed. File: ${filename}"
     else
-        echo_info "Using cached Temurin JDK ${version} package for ${os}-${arch}..."
+        echo_info "Using cached Temurin JDK ${version} package for linux-${arch}..."
     fi
 
     filename="${CACHE_DIR}/${filename}"
@@ -308,24 +481,12 @@ setup_openjdk() {
 setup_nodejs() {
     local version=$1
     local force=$2
+    local arch=""
 
     if [[ -z $version ]]; then
         echo_error "Usage: setup_nodejs <version>"
         return 1
     fi
-
-    # Detect OS and architecture
-    local os=""
-    local arch=""
-
-    case "$(uname -s)" in
-    Linux) os="linux" ;;
-    Darwin) os="darwin" ;;
-    *)
-        echo_error "Unsupported OS: $(uname -s)"
-        return 1
-        ;;
-    esac
 
     case "$(uname -m)" in
     x86_64) arch="x64" ;;
@@ -338,7 +499,7 @@ setup_nodejs() {
 
     # Construct the download URL
     local base_url="https://nodejs.org/dist"
-    local filename="node-v${version}-${os}-${arch}.tar.xz"
+    local filename="node-v${version}-linux-${arch}.tar.xz"
     local url="${base_url}/v${version}/${filename}"
 
     # Check if the URL is valid
@@ -349,7 +510,7 @@ setup_nodejs() {
 
     # Check for cached file or, download afresh
     if ! _valid_cached_file "${filename}"; then
-        echo_info "Downloading Node.js version ${version} for ${os}-${arch}..."
+        echo_info "Downloading Node.js version ${version} for linux-${arch}..."
         curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
             echo_error "Failed to download from ${url}"
             return 1
@@ -357,7 +518,7 @@ setup_nodejs() {
 
         echo_info "Download completed. File: ${filename}"
     else
-        echo_info "Using cached Node.js version ${version} package for ${os}-${arch}..."
+        echo_info "Using cached Node.js version ${version} package for linux-${arch}..."
     fi
 
     filename="${CACHE_DIR}/${filename}"
@@ -370,24 +531,12 @@ setup_nodejs() {
 setup_golang() {
     local version=$1
     local force=$2
+    local arch=""
 
     if [[ -z $version ]]; then
         echo_error "Usage: setup_golang <version>"
         return 1
     fi
-
-    # Detect OS and architecture
-    local os=""
-    local arch=""
-
-    case "$(uname -s)" in
-    Linux) os="linux" ;;
-    Darwin) os="darwin" ;;
-    *)
-        echo_error "Unsupported OS: $(uname -s)"
-        return 1
-        ;;
-    esac
 
     case "$(uname -m)" in
     x86_64) arch="amd64" ;;
@@ -400,7 +549,7 @@ setup_golang() {
 
     # Construct the download URL
     local base_url="https://go.dev/dl"
-    local filename="go${version}.${os}-${arch}.tar.gz"
+    local filename="go${version}.linux-${arch}.tar.gz"
     local url="${base_url}/${filename}"
 
     # Check if the URL is valid
@@ -411,7 +560,7 @@ setup_golang() {
 
     # Check for cached file or, download afresh
     if ! _valid_cached_file "${filename}"; then
-        echo_info "Downloading Go version ${version} for ${os}-${arch}..."
+        echo_info "Downloading Go version ${version} for linux-${arch}..."
         curl -o "${CACHE_DIR}/${filename}" -L "${url}" || {
             echo_error "Failed to download from ${url}"
             return 1
@@ -419,7 +568,7 @@ setup_golang() {
 
         echo_info "Download completed. File: ${filename}"
     else
-        echo_info "Using cached Go version ${version} package for ${os}-${arch}..."
+        echo_info "Using cached Go version ${version} package for linux-${arch}..."
     fi
 
     filename="${CACHE_DIR}/${filename}"
@@ -516,7 +665,7 @@ install_direnv() {
     unset bin_path
 
     if [ ! -d ${HOME}/.config/direnv ]; then
-        cp -a ${UDKIT_BASE}/skel/direnv ${HOME}/.config/
+        cp ${HOME}/.udkit/skel/direnv ${HOME}/.config/
     fi
 }
 
@@ -526,7 +675,7 @@ install_starship() {
     curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir ${HOME}/.local/bin
 
     if [ ! -f ${HOME}/.config/starship.toml ]; then
-        cp ${UDKIT_BASE}/skel/starship.toml ${HOME}/.config/
+        cp ${HOME}/.udkit/skel/starship.toml ${HOME}/.config/
     fi
 }
 
@@ -545,6 +694,9 @@ setup_devkit() {
     fi
 
     case "$devkit" in
+    python)
+        setup_python $version $force
+        ;;
     openjdk)
         setup_openjdk $version $force
         ;;
@@ -561,7 +713,7 @@ setup_devkit() {
         setup_maven $version $force
         ;;
     *)
-        echo_error "Unknown devkit: $devkit.\nSupported devkits: openjdk, nodejs, golang, gradle, maven"
+        echo_error "Unknown devkit: $devkit.\nSupported devkits: python, openjdk, nodejs, golang, gradle, maven"
         return 1
         ;;
     esac
@@ -587,7 +739,7 @@ while [[ $# -gt 0 ]]; do
     --help)
         echo "Usage: $0 [options]"
         echo "Options:"
-        echo "  --kit=<devkit>      Devkit to install (openjdk, nodejs, golang, gradle, maven)"
+        echo "  --kit=<devkit>      Devkit to install (python, openjdk, nodejs, golang, gradle, maven)"
         echo "  --version=<version> Version of the devkit to install"
         echo "  --force=<true|false> Force install devkit even if it is already installed"
         echo "  --help              Display this help message"

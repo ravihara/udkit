@@ -2,9 +2,10 @@ direnv_version 2.35.0
 
 ## Handle python version (using uv)
 layout_pyuv() {
-  local py_version=$1
+  local udk_version=$1
+  local udk_basedir=${HOME}/.udkit/dist
 
-  if [ -z "$py_version" ]; then
+  if [ -z "$udk_version" ]; then
     echo "No python version specified."
     return
   fi
@@ -13,6 +14,15 @@ layout_pyuv() {
     echo "Unable to find 'uv' command. Please check the installation or PATH"
     return
   fi
+
+  local prog_dir="$udk_basedir/py-$udk_version"
+
+  if [ ! -d "$prog_dir" ]; then
+    echo "No python version $udk_version found. Please check the installation."
+    return
+  fi
+
+  load_prefix $prog_dir
 
   # Fix: Unbound variable issue
   VIRTUAL_ENV=""
@@ -24,10 +34,10 @@ layout_pyuv() {
   if [[ -z $VIRTUAL_ENV || ! -d $VIRTUAL_ENV ]]; then
     if [[ ! -f "pyproject.toml" ]]; then
       echo "No uv project exists. Executing \`uv init\` to create one."
-      uv init --no-readme
+      uv init --bare --no-readme --no-workspace
     fi
 
-    uv venv --python ${py_version}
+    uv venv --python ${udk_version}
     VIRTUAL_ENV="$(pwd)/.venv"
   fi
 
@@ -39,7 +49,7 @@ layout_pyuv() {
 ## Handle nodejs version
 use_nodejs() {
   local udk_version=$1
-  local udk_basedir="$UDKIT_BASE/dist"
+  local udk_basedir=${HOME}/.udkit/dist
 
   if [ -z "$udk_version" ]; then
     echo "No nodejs version specified."
@@ -60,7 +70,7 @@ use_nodejs() {
 ## Handle golang version
 use_golang() {
   local udk_version=$1
-  local udk_basedir="$UDKIT_BASE/dist"
+  local udk_basedir=${HOME}/.udkit/dist
 
   if [ -z "$udk_version" ]; then
     echo "No golang version specified."
@@ -83,7 +93,7 @@ use_golang() {
 ## Handle openjdk version
 use_openjdk() {
   local udk_version=$1
-  local udk_basedir="$UDKIT_BASE/dist"
+  local udk_basedir=${HOME}/.udkit/dist
 
   if [ -z "$udk_version" ]; then
     echo "No openjdk version specified."
@@ -107,7 +117,7 @@ use_openjdk() {
 ## Handle gradle version
 use_gradle() {
   local udk_version=$1
-  local udk_basedir="$UDKIT_BASE/dist"
+  local udk_basedir=${HOME}/.udkit/dist
 
   if [ -z "$udk_version" ]; then
     echo "No gradle version specified."
@@ -128,7 +138,7 @@ use_gradle() {
 ## Handle maven version
 use_maven() {
   local udk_version=$1
-  local udk_basedir="$UDKIT_BASE/dist"
+  local udk_basedir=${HOME}/.udkit/dist
 
   if [ -z "$udk_version" ]; then
     echo "No maven version specified."

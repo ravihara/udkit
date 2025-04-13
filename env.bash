@@ -1,8 +1,7 @@
 #!/bin/bash
 
 ## UDKit configuration
-export UDKIT_BASE=$HOME/.udkit
-export PATH="$UDKIT_BASE/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin:$PATH"
+export PATH="$HOME/.udkit/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/sbin:$PATH"
 export LD_LIBRARY_PATH="$HOME/.local/lib:/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$HOME/.local/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
@@ -36,13 +35,6 @@ if [ -d ~/.bashrc.d ]; then
 	unset rc
 fi
 
-## Custom python installation (locally compiled)
-if [ -L "${UDKIT_BASE}/dist/py-udk" ]; then
-	export PATH="${UDKIT_BASE}/dist/py-udk/bin:$PATH"
-	export LD_LIBRARY_PATH="${UDKIT_BASE}/dist/py-udk/lib:$LD_LIBRARY_PATH"
-	export PKG_CONFIG_PATH="${UDKIT_BASE}/dist/py-udk/lib/pkgconfig:$PKG_CONFIG_PATH"
-fi
-
 ## Rust/cargo configuration
 [ -d ~/.cargo ] && source "$HOME/.cargo/env"
 
@@ -52,11 +44,6 @@ fi
 ## Starship prompt configuration
 if [ -n "$(command -v starship 2>/dev/null)" ]; then
 	eval "$(starship init bash)"
-fi
-
-## UV configuration
-if [ -f ~/.config/uv/uv.toml ]; then
-	export UV_EXTRA_INDEX_URL=$(cat ~/.config/uv/uv.toml | grep -E "^url*=*" | cut -d \= -f 2 | sed -e s/\s+//g -e s/\"//g)
 fi
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
