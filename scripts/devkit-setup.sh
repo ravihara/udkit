@@ -86,7 +86,6 @@ _teardown_pydev_packages() {
 _install_python() {
     local pkgfile=$1
     local version=$2
-    local force=$3
 
     local pkg_bname=$(basename $pkgfile)
     local pkg_base=$(tar_xz_pkgbase $pkgfile)
@@ -95,16 +94,6 @@ _install_python() {
     local python_bin="${python_dir}/bin"
     local python_lib="${python_dir}/lib"
     local python_inc="${python_dir}/include"
-
-    if [ "$force" != "true" ]; then
-        if [ -d "${python_dir}" ]; then
-            echo_info "Python ${version} is already installed."
-            return 0
-        fi
-    else
-        echo_info "Force installing Python ${version}..."
-        rm -rf "${python_dir}"
-    fi
 
     echo_info "Installing Python ${version}..."
     _setup_pydev_packages
@@ -204,7 +193,6 @@ _install_python() {
 _install_openjdk() {
     local pkgfile=$1
     local version=$2
-    local force=$3
 
     local pkg_base=$(tar_gz_pkgbase $pkgfile)
     local jdk_dir="${UDK_DIST}/jdk-${version}"
@@ -212,16 +200,6 @@ _install_openjdk() {
     local jdk_bin="${jdk_dir}/bin"
     local jdk_lib="${jdk_dir}/lib"
     local jdk_inc="${jdk_dir}/include"
-
-    if [ "$force" != "true" ]; then
-        if [ -d "${jdk_dir}" ]; then
-            echo_info "Temurin JDK ${version} is already installed."
-            return 0
-        fi
-    else
-        echo_info "Force installing Temurin JDK ${version}..."
-        rm -rf "${jdk_dir}"
-    fi
 
     echo_info "Installing Temurin JDK ${version}..."
     tar -xf "${pkgfile}" -C "${UDK_DIST}" && sync
@@ -241,7 +219,6 @@ _install_openjdk() {
 _install_nodejs() {
     local pkgfile=$1
     local version=$2
-    local force=$3
 
     local pkg_base=$(tar_pkgbase $pkgfile)
     local node_dir="${UDK_DIST}/node-${version}"
@@ -249,16 +226,6 @@ _install_nodejs() {
     local node_bin="${node_dir}/bin"
     local node_lib="${node_dir}/lib"
     local node_inc="${node_dir}/include"
-
-    if [ "$force" != "true" ]; then
-        if [ -d "${node_dir}" ]; then
-            echo_info "Node.js ${version} is already installed."
-            return 0
-        fi
-    else
-        echo_info "Force installing Node.js ${version}..."
-        rm -rf "${node_dir}"
-    fi
 
     echo_info "Installing Node.js ${version}..."
     tar -xf "${pkgfile}" -C "${UDK_DIST}" && sync
@@ -278,23 +245,12 @@ _install_nodejs() {
 _install_golang() {
     local pkgfile=$1
     local version=$2
-    local force=$3
 
     local pkg_base=$(tar_gz_pkgbase $pkgfile)
     local go_dir="${UDK_DIST}/go-${version}"
 
     local go_bin="${go_dir}/bin"
     local go_lib="${go_dir}/lib"
-
-    if [ "$force" != "true" ]; then
-        if [ -d "${go_dir}" ]; then
-            echo_info "Go ${version} is already installed."
-            return 0
-        fi
-    else
-        echo_info "Force installing Go ${version}..."
-        rm -rf "${go_dir}"
-    fi
 
     echo_info "Installing Go ${version}..."
     tar -zxf "${pkgfile}" -C "${UDK_DIST}" && sync
@@ -315,23 +271,12 @@ _install_golang() {
 _install_gradle() {
     local pkgfile=$1
     local version=$2
-    local force=$3
 
     local pkg_base=$(zip_pkgbase $pkgfile)
     local gradle_dir="${UDK_DIST}/gradle-${version}"
 
     local gradle_bin="${gradle_dir}/bin"
     local gradle_lib="${gradle_dir}/lib"
-
-    if [ "$force" != "true" ]; then
-        if [ -d "${gradle_dir}" ]; then
-            echo_info "Gradle ${version} is already installed."
-            return 0
-        fi
-    else
-        echo_info "Force installing Gradle ${version}..."
-        rm -rf "${gradle_dir}"
-    fi
 
     echo_info "Installing Gradle ${version}..."
     unzip -qq "${pkgfile}" -d "${UDK_DIST}" && sync
@@ -351,23 +296,12 @@ _install_gradle() {
 _install_maven() {
     local pkgfile=$1
     local version=$2
-    local force=$3
 
     local pkg_base=$(zip_pkgbase $pkgfile)
     local maven_dir="${UDK_DIST}/mvn-${version}"
 
     local maven_bin="${maven_dir}/bin"
     local maven_lib="${maven_dir}/lib"
-
-    if [ "$force" != "true" ]; then
-        if [ -d "${maven_dir}" ]; then
-            echo_info "Maven ${version} is already installed."
-            return 0
-        fi
-    else
-        echo_info "Force installing Maven ${version}..."
-        rm -rf "${maven_dir}"
-    fi
 
     echo_info "Installing Maven ${version}..."
     unzip -qq "${pkgfile}" -d "${UDK_DIST}" && sync
@@ -389,10 +323,21 @@ setup_python() {
     local version=$1
     local force=$2
     local arch=""
+    local python_dir="${UDK_DIST}/py-${version}"
 
     if [[ -z $version ]]; then
         echo_error "Usage: setup_python <version>"
         return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${python_dir}" ]; then
+            echo_info "Python ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Python ${version}..."
+        rm -rf "${python_dir}"
     fi
 
     case "$(uname -m)" in
@@ -431,7 +376,7 @@ setup_python() {
     filename="${CACHE_DIR}/${filename}"
 
     # Install the Python tarball
-    _install_python "${filename}" "${version}" "${force}"
+    _install_python "${filename}" "${version}"
 }
 
 # Function to download Temurin JDK
@@ -439,10 +384,21 @@ setup_openjdk() {
     local version=$1
     local force=$2
     local arch=""
+    local jdk_dir="${UDK_DIST}/jdk-${version}"
 
     if [[ -z $version ]]; then
         echo_error "Usage: setup_openjdk <version>"
         return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${jdk_dir}" ]; then
+            echo_info "Temurin JDK ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Temurin JDK ${version}..."
+        rm -rf "${jdk_dir}"
     fi
 
     case "$(uname -m)" in
@@ -483,7 +439,7 @@ setup_openjdk() {
     filename="${CACHE_DIR}/${filename}"
 
     # Install the OpenJDK tarball
-    _install_openjdk "${filename}" "${version}" "${force}"
+    _install_openjdk "${filename}" "${version}"
 }
 
 # Function to download Node.js binary package
@@ -491,10 +447,21 @@ setup_nodejs() {
     local version=$1
     local force=$2
     local arch=""
+    local node_dir="${UDK_DIST}/node-${version}"
 
     if [[ -z $version ]]; then
         echo_error "Usage: setup_nodejs <version>"
         return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${node_dir}" ]; then
+            echo_info "Node.js ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Node.js ${version}..."
+        rm -rf "${node_dir}"
     fi
 
     case "$(uname -m)" in
@@ -533,7 +500,7 @@ setup_nodejs() {
     filename="${CACHE_DIR}/${filename}"
 
     # Install the Node.js tarball
-    _install_nodejs "${filename}" "${version}" "${force}"
+    _install_nodejs "${filename}" "${version}"
 }
 
 # Function to download Go
@@ -541,10 +508,21 @@ setup_golang() {
     local version=$1
     local force=$2
     local arch=""
+    local go_dir="${UDK_DIST}/go-${version}"
 
     if [[ -z $version ]]; then
         echo_error "Usage: setup_golang <version>"
         return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${go_dir}" ]; then
+            echo_info "Go ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Go ${version}..."
+        rm -rf "${go_dir}"
     fi
 
     case "$(uname -m)" in
@@ -583,18 +561,29 @@ setup_golang() {
     filename="${CACHE_DIR}/${filename}"
 
     # Install the Go binary
-    _install_golang "${filename}" "${version}" "${force}"
+    _install_golang "${filename}" "${version}"
 }
 
 # Function to download Gradle binary package
 setup_gradle() {
     local version=$1
     local force=$2
+    local gradle_dir="${UDK_DIST}/gradle-${version}"
 
     # Check if version is provided
     if [[ -z "$version" ]]; then
         echo_error "Error: Please provide the Gradle version as an argument."
         return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${gradle_dir}" ]; then
+            echo_info "Gradle ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Gradle ${version}..."
+        rm -rf "${gradle_dir}"
     fi
 
     local base_url="https://services.gradle.org/distributions"
@@ -623,18 +612,29 @@ setup_gradle() {
     filename="${CACHE_DIR}/${filename}"
 
     # Install the Gradle binary package
-    _install_gradle "${filename}" "${version}" "${force}"
+    _install_gradle "${filename}" "${version}"
 }
 
 # Function to download Maven binary package
 setup_maven() {
     local version=$1
     local force=$2
+    local maven_dir="${UDK_DIST}/mvn-${version}"
 
     # Check if version is provided
     if [[ -z "$version" ]]; then
         echo_error "Error: Please provide the Maven version as an argument."
         return 1
+    fi
+
+    if [ "$force" != "true" ]; then
+        if [ -d "${maven_dir}" ]; then
+            echo_info "Maven ${version} is already installed."
+            return 0
+        fi
+    else
+        echo_info "Force installing Maven ${version}..."
+        rm -rf "${maven_dir}"
     fi
 
     local base_url="https://dlcdn.apache.org/maven/maven-3"
@@ -663,7 +663,7 @@ setup_maven() {
     filename="${CACHE_DIR}/${filename}"
 
     # Install the Maven binary package
-    _install_maven "${filename}" "${version}" "${force}"
+    _install_maven "${filename}" "${version}"
 }
 
 install_direnv() {
