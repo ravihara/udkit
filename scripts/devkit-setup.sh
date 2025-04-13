@@ -4,6 +4,9 @@
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 source ${SCRIPT_DIR}/funcs.bash
 
+## Check for devkit setup tools
+check_devkit_tools
+
 ## Check for atleast two arguments
 if [[ $# -lt 2 ]]; then
     echo_error "Usage: $(basename $0) --kit=<devkit> --version=<version> [--force=true|false]"
@@ -69,7 +72,11 @@ _setup_pydev_packages() {
 
 _teardown_pydev_packages() {
     sudo apt-mark auto '.*' >/dev/null
-    sudo apt-mark manual ${savedAptMark}
+
+    if [ -n "$savedAptMark" ]; then
+        sudo apt-mark manual ${savedAptMark}
+    fi
+
     sudo apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false
     sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 }
@@ -100,10 +107,8 @@ _install_python() {
     _setup_pydev_packages
 
     tmpdir=$(mktemp -d --suffix=-src)
-    tar -xf "${pkgfile}" -C "${tmpdir}" && sync
-
-    GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
     GNUPGHOME="$(mktemp -d --suffix=-gnupg)"
+    GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
 
     export GNUPGHOME
 
@@ -114,9 +119,8 @@ _install_python() {
     }
 
     gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "${GPG_KEY}"
-    gpg --batch --verify "${tmpdir}/${pkg_base}.asc" "${tmpdir}/${pkg_base}"
+    gpg --batch --verify "${tmpdir}/${pkg_base}.asc" "${pkgfile}"
     { command -v gpgconf >/dev/null && gpgconf --kill all || :; }
-    sync
 
     tar -xJC ${tmpdir}/python --strip-components=1 -f ${pkgfile} && sync
     cd ${tmpdir}/python
@@ -152,8 +156,9 @@ _install_python() {
     curl -LsSf https://astral.sh/uv/install.sh | sh
     cd -
 
-    rm -rf "${tmpdir}" "${GNUPGHOME}" "${tmpdir}/${pkg_base}.asc"
+    rm -rf "${tmpdir}" "${GNUPGHOME}"
     unset GNUPGHOME
+
     find ${python_dir} -depth \
         \( \
         \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \

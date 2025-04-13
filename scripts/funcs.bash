@@ -1,16 +1,5 @@
 #!/bin/bash
 
-## Check for wget, tar and unzip
-_check_dependencies() {
-    local dependencies=("wget" "tar" "unzip")
-    for dependency in "${dependencies[@]}"; do
-        command -v "$dependency" &>/dev/null || {
-            echo "Missing dependency: $dependency"
-            exit 1
-        }
-    done
-}
-
 ## Array to string conversion with given separator
 join_list_items_by() {
     local d=${1-} f=${2-}
@@ -57,6 +46,17 @@ is_url_valid() {
     return $?
 }
 
+## Check for devkit setup tools
+check_devkit_tools() {
+    local dependencies=("wget" "tar" "unzip")
+    for dependency in "${dependencies[@]}"; do
+        command -v "$dependency" &>/dev/null || {
+            echo "Missing dependency: $dependency"
+            exit 1
+        }
+    done
+}
+
 zip_pkgbase() {
     filename=$1
 
@@ -80,5 +80,3 @@ tar_pkgbase() {
     local pkgbase=$(tar -tf "${filename}" | head -1 | awk -F "/" {'print $1'})
     echo "$pkgbase"
 }
-
-_check_dependencies
