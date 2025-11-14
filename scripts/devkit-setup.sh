@@ -90,7 +90,18 @@ _install_python() {
 
     tmpdir=$(mktemp -d --suffix=-src)
     GNUPGHOME="$(mktemp -d --suffix=-gnupg)"
-    GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
+
+    ## check if version starts with 3.11
+    echo_info "Using GPG_KEY for ${version}..."
+
+    if [[ "${version}" == 3.11* ]]; then
+        GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
+    elif [[ "${version}" == 3.12* ]]; then
+        GPG_KEY="7169605F62C751356D054A26A821E680E5FA6305"
+    else
+        echo_error "Unsupported Python version for GPG verification: ${version}"
+        return 1
+    fi
 
     export GNUPGHOME
 
