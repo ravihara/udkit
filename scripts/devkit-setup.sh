@@ -670,7 +670,7 @@ install_direnv() {
     unset bin_path
 
     if [ ! -d ${HOME}/.config/direnv ]; then
-        cp ${HOME}/.udkit/skel/direnv ${HOME}/.config/
+        cp -r ${HOME}/.udkit/skel/direnv ${HOME}/.config/
     fi
 }
 
