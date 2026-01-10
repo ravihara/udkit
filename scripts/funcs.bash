@@ -46,6 +46,11 @@ init_runtimes() {
         export BUN_INSTALL="${HOME}/.bun"
         export PATH="${BUN_INSTALL}/bin:$PATH"
     fi
+
+    ##Opencode configuration
+    if [ -d "${HOME}/.opencode" ]; then
+        export PATH=${HOME}/.opencode/bin:$PATH
+    fi
 }
 
 ## Array to string conversion with given separator
