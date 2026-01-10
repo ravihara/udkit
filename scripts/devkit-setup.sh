@@ -662,41 +662,11 @@ setup_maven() {
     _install_maven "${filename}" "${version}"
 }
 
-install_direnv() {
-    echo_info "Installing direnv..."
-    export bin_path=${HOME}/.local/bin
-    mkdir -p ${bin_path}
-    curl -fsSL https://direnv.net/install.sh | bash
-    unset bin_path
-
-    if [ ! -d ${HOME}/.config/direnv ]; then
-        cp -r ${HOME}/.udkit/skel/direnv ${HOME}/.config/
-    fi
-}
-
-install_starship() {
-    echo_info "Installing starship..."
-    mkdir -p ${HOME}/.local/bin
-    curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir ${HOME}/.local/bin
-
-    if [ ! -f ${HOME}/.config/starship.toml ]; then
-        cp ${HOME}/.udkit/skel/starship.toml ${HOME}/.config/
-    fi
-}
-
 ## Install the required devkit with commandline arguments
 setup_devkit() {
     local devkit=$1
     local version=$2
     local force=${3:-false}
-
-    if [[ -z $(command -v direnv 2>/dev/null) ]]; then
-        install_direnv
-    fi
-
-    if [[ -z $(command -v starship 2>/dev/null) ]]; then
-        install_starship
-    fi
 
     case "$devkit" in
     python)

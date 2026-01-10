@@ -1,8 +1,9 @@
-direnv_version 2.35.0
+direnv_version "2.37.1"
 
 ## Handle python version (using uv)
 layout_pyuv() {
   local udk_version=$1
+  local venv_option=${2:-""}
   local udk_basedir=${HOME}/.udkit/dist
 
   if [ -z "$udk_version" ]; then
@@ -24,6 +25,11 @@ layout_pyuv() {
 
   load_prefix $prog_dir
 
+  ## Check if venv is disabled and return accordingly
+  if [ "x$venv_option" == "xnovenv" ]; then
+    return
+  fi
+
   # Fix: Unbound variable issue
   VIRTUAL_ENV=""
 
@@ -33,11 +39,10 @@ layout_pyuv() {
 
   if [[ -z $VIRTUAL_ENV || ! -d $VIRTUAL_ENV ]]; then
     if [[ ! -f "pyproject.toml" ]]; then
-      echo "No uv project exists. Executing \`uv init\` to create one."
-      uv init --bare --no-readme --no-workspace
+      uv init --bare --no-readme --no-workspace >/dev/null 2>&1
     fi
 
-    uv venv --python ${udk_version}
+    uv venv --python ${udk_version} >/dev/null 2>&1
     VIRTUAL_ENV="$(pwd)/.venv"
   fi
 
@@ -84,6 +89,8 @@ use_golang() {
     load_prefix $prog_dir
     export GOROOT=$prog_dir
     export GOPATH=${udk_basedir}/goext
+
+    mkdir -p ${GOPATH}/src ${GOPATH}/bin ${GOPATH}/pkg
   elif [ -n "$sys_prog" ]; then
     export GOROOT=$(dirname $(dirname $syslog))
     export GOPATH=${udk_basedir}/goext

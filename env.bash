@@ -5,6 +5,9 @@ export PATH="$HOME/.udkit/bin:$HOME/.local/bin:/usr/local/bin:/usr/local/sbin:/u
 export LD_LIBRARY_PATH="$HOME/.local/lib:/usr/local/lib:/usr/local/lib64:$LD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$HOME/.local/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
 
+## Create local directories if not present
+mkdir -p "$HOME/.local/bin" "$HOME/.local/lib" "$HOME/.local/include" "$HOME/.local/share"
+
 ## Set line coloring
 export TRML_HL='\033[1;35m'
 export TRML_NC='\033[0m'
@@ -35,24 +38,53 @@ if [ -d ~/.bashrc.d ]; then
 	unset rc
 fi
 
-## Rust/cargo configuration
-[ -d ~/.cargo ] && source "$HOME/.cargo/env"
+install_direnv() {
+	echo_info "Installing direnv..."
+	export bin_path=${HOME}/.local/bin
+	mkdir -p ${bin_path}
+	curl -fsSL https://direnv.net/install.sh | bash
+	unset bin_path
 
-## Fuzzy finder configuration
-[ -f ~/.fzf.bash ] && source ~/.fzf.bash
+	if [ ! -d ${HOME}/.config/direnv ]; then
+		cp -r ${HOME}/.udkit/skel/direnv ${HOME}/.config/
+	fi
+}
+
+install_starship() {
+	echo_info "Installing starship..."
+	mkdir -p ${HOME}/.local/bin
+	curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir ${HOME}/.local/bin
+
+	if [ ! -f ${HOME}/.config/starship.toml ]; then
+		cp ${HOME}/.udkit/skel/starship.toml ${HOME}/.config/
+	fi
+}
+
+## Install and configure direnv if not present
+if [[ -z $(command -v direnv 2>/dev/null) ]]; then
+	install_direnv
+fi
+
+## Install and configure starship prompt if not present
+if [[ -z $(command -v starship 2>/dev/null) ]]; then
+	install_starship
+fi
 
 ## Starship prompt configuration
 if [ -n "$(command -v starship 2>/dev/null)" ]; then
 	eval "$(starship init bash)"
 fi
 
-## Custom python installation (locally compiled)
-py_udkdir="${HOME}/.udkit/dist/py-udk"
+## Fuzzy finder configuration
+[ -f "${HOME}/.fzf.bash" ] && source "${HOME}/.fzf.bash"
 
-if [ -L "${py_udkdir}" ]; then
-	export PATH="${py_udkdir}/bin:$PATH"
-	export LD_LIBRARY_PATH="${py_udkdir}/lib:$LD_LIBRARY_PATH"
-	export PKG_CONFIG_PATH="${py_udkdir}/lib/pkgconfig:$PKG_CONFIG_PATH"
+## Rust/cargo configuration
+[ -d "${HOME}/.cargo" ] && source "$HOME/.cargo/env"
+
+## Bun configuration
+if [ -d "${HOME}/.bun" ]; then
+	export BUN_INSTALL="${HOME}/.bun"
+	export PATH="${BUN_INSTALL}/bin:$PATH"
 fi
 
 ######### DO NOT EDIT ANYTHING BELOW THIS LINE #########
