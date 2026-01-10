@@ -77,43 +77,56 @@ _install_python() {
     local pkgfile=$1
     local version=$2
 
+    if [ -z "$(command -v python3 2>/dev/null)" ]; then
+        echo_error "An existing Python3 installation is required to install 'sigstore' for signature verification."
+        return 1
+    fi
+
+    ## Verify python source tarball using sigstore
+    local sigstore_info=$(sigstore_info_for_pyver $version)
+
+    if [ -z "$sigstore_info" ]; then
+        echo_error "Sigstore verification information not found for Python version ${version}."
+        return 1
+    fi
+
+    echo_info "Installing sigstore verification package..."
+    python3 -m pip install --upgrade pip --user
+    python3 -m pip install -U -r https://raw.githubusercontent.com/sigstore/sigstore-python/main/install/requirements.txt --user
+
     local pkg_bname=$(basename $pkgfile)
     local pkg_base=$(tar_xz_pkgbase $pkgfile)
     local python_dir="${UDK_DIST}/py-${version}"
+    local tmpdir=$(mktemp -d --suffix=-src)
 
     local python_bin="${python_dir}/bin"
     local python_lib="${python_dir}/lib"
     local python_inc="${python_dir}/include"
 
-    echo_info "Installing Python ${version}..."
-    _setup_pydev_packages
-
-    tmpdir=$(mktemp -d --suffix=-src)
-    GNUPGHOME="$(mktemp -d --suffix=-gnupg)"
-
-    ## check if version starts with 3.11
-    echo_info "Using GPG_KEY for ${version}..."
-
-    if [[ "${version}" == 3.11* ]]; then
-        GPG_KEY="A035C8C19219BA821ECEA86B64E628F8D684696D"
-    elif [[ "${version}" == 3.12* ]]; then
-        GPG_KEY="7169605F62C751356D054A26A821E680E5FA6305"
-    else
-        echo_error "Unsupported Python version for GPG verification: ${version}"
-        return 1
-    fi
-
-    export GNUPGHOME
-
-    ## Download python.targ.xz.asc into tmpdir
-    curl -o "${tmpdir}/${pkg_bname}.asc" -L "https://www.python.org/ftp/python/${version}/${pkg_bname}.asc" || {
-        echo_error "Failed to download python GPG signature."
+    ## Download python.targ.xz.sigstore file into tmpdir
+    curl -o "${tmpdir}/${pkg_bname}.sigstore" -L "https://www.python.org/ftp/python/${version}/${pkg_bname}.sigstore" || {
+        echo_error "Failed to download python .sigstore file."
+        rm -rf "${tmpdir}"
         return 1
     }
 
-    gpg --batch --keyserver hkps://keys.openpgp.org --recv-keys "${GPG_KEY}"
-    gpg --batch --verify "${tmpdir}/${pkg_bname}.asc" "${pkgfile}"
-    { command -v gpgconf >/dev/null && gpgconf --kill all || :; }
+    local verify_result=$(python3 -m sigstore verify identity \
+        --bundle ${tmpdir}/${pkg_bname}.sigstore \
+        --cert-identity $(echo "$sigstore_info" | cut -d '|' -f1) \
+        --cert-oidc-issuer $(echo "$sigstore_info" | cut -d '|' -f2) \
+        ${pkgfile} 2>&1)
+
+    if [[ -n "$(echo "$verify_result" | grep -E "^OK: .*${pkg_bname//./\\.}$" | grep -v 'grep')" ]]; then
+        echo_info "Sigstore verification succeeded for Python ${version} source package."
+    else
+        echo_error "Sigstore verification failed for Python ${version} source package."
+        echo_error "$verify_result"
+        rm -rf "${tmpdir}"
+        return 1
+    fi
+
+    echo_info "Installing Python ${version}..."
+    _setup_pydev_packages
 
     mkdir -p ${tmpdir}/python
     tar --extract --directory ${tmpdir}/python --strip-components=1 --file ${pkgfile} && sync
@@ -147,8 +160,7 @@ _install_python() {
     sync && make install && sync
     cd -
 
-    rm -rf "${tmpdir}" "${GNUPGHOME}"
-    unset GNUPGHOME
+    rm -rf "${tmpdir}"
 
     find ${python_dir} -depth \
         \( \

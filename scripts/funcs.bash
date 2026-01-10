@@ -136,3 +136,29 @@ tar_pkgbase() {
     local pkgbase=$(tar -tf "${filename}" | head -1 | awk -F "/" {'print $1'})
     echo "$pkgbase"
 }
+
+sigstore_info_for_pyver() {
+    local version=$1
+
+    # Return value is of the format - "RELEASE_MANAGER|OIDC_ISSUER"
+    case "$version" in
+    3.11*)
+        echo "pablogsal@python.org|https://accounts.google.com"
+        ;;
+    3.12*)
+        echo "thomas@python.org|https://accounts.google.com"
+        ;;
+    3.13*)
+        echo "thomas@python.org|https://accounts.google.com"
+        ;;
+    3.14*)
+        echo "hugo@python.org|https://github.com/login/oauth"
+        ;;
+    3.15*)
+        echo "hugo@python.org|https://github.com/login/oauth"
+        ;;
+    *)
+        echo ""
+        ;;
+    esac
+}
