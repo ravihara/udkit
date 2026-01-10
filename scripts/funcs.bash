@@ -1,5 +1,53 @@
 #!/bin/bash
 
+init_bash_prompt() {
+    ## Create local directories if not present
+    mkdir -p "$HOME/.local/bin" "$HOME/.local/lib" "$HOME/.local/include" "$HOME/.local/share"
+
+    ## Install and configure direnv if not present
+    if [[ -z $(command -v direnv 2>/dev/null) ]]; then
+        echo_info "Installing direnv..."
+        export bin_path=${HOME}/.local/bin
+        mkdir -p ${bin_path}
+        curl -fsSL https://direnv.net/install.sh | bash
+        unset bin_path
+    fi
+
+    if [ ! -d ${HOME}/.config/direnv ]; then
+        cp -r ${HOME}/.udkit/skel/direnv ${HOME}/.config/
+    fi
+
+    ## Install and configure starship prompt if not present
+    if [[ -z $(command -v starship 2>/dev/null) ]]; then
+        echo_info "Installing starship..."
+        mkdir -p ${HOME}/.local/bin
+        curl -sS https://starship.rs/install.sh | sh -s -- --bin-dir ${HOME}/.local/bin
+    fi
+
+    if [ ! -f ${HOME}/.config/starship.toml ]; then
+        cp ${HOME}/.udkit/skel/starship.toml ${HOME}/.config/
+    fi
+
+    ## Starship prompt configuration
+    if [ -n "$(command -v starship 2>/dev/null)" ]; then
+        eval "$(starship init bash)"
+    fi
+
+    ## Fuzzy finder configuration
+    [ -f "${HOME}/.fzf.bash" ] && source "${HOME}/.fzf.bash"
+}
+
+init_runtimes() {
+    ## Rust/cargo configuration
+    [ -d "${HOME}/.cargo" ] && source "$HOME/.cargo/env"
+
+    ## Bun configuration
+    if [ -d "${HOME}/.bun" ]; then
+        export BUN_INSTALL="${HOME}/.bun"
+        export PATH="${BUN_INSTALL}/bin:$PATH"
+    fi
+}
+
 ## Array to string conversion with given separator
 join_list_items_by() {
     local d=${1-} f=${2-}
