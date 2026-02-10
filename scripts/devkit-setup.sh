@@ -77,8 +77,8 @@ _install_python() {
     local pkgfile=$1
     local version=$2
 
-    if [ -z "$(command -v python3 2>/dev/null)" ]; then
-        echo_error "An existing Python3 installation is required to install 'sigstore' for signature verification."
+    if [ -z "$(command -v pipx 2>/dev/null)" ]; then
+        echo_error "An existing 'pipx' installation is required to install 'sigstore' for signature verification."
         return 1
     fi
 
@@ -91,8 +91,7 @@ _install_python() {
     fi
 
     echo_info "Installing sigstore verification package..."
-    python3 -m pip install --upgrade pip --user
-    python3 -m pip install -U -r https://raw.githubusercontent.com/sigstore/sigstore-python/main/install/requirements.txt --user
+    pipx install sigstore
 
     local pkg_bname=$(basename $pkgfile)
     local pkg_base=$(tar_xz_pkgbase $pkgfile)
@@ -110,7 +109,7 @@ _install_python() {
         return 1
     }
 
-    local verify_result=$(python3 -m sigstore verify identity \
+    local verify_result=$(pipx run sigstore verify identity \
         --bundle ${tmpdir}/${pkg_bname}.sigstore \
         --cert-identity $(echo "$sigstore_info" | cut -d '|' -f1) \
         --cert-oidc-issuer $(echo "$sigstore_info" | cut -d '|' -f2) \
