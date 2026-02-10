@@ -79,7 +79,7 @@ _install_python() {
 
     if [ -z "$(command -v pipx 2>/dev/null)" ]; then
         echo_info "The pipx tool is needed to install sigstore for signature verification. Installing pipx..."
-        sudo apt install -y pipx
+        sudo apt update && sudo apt install -y pipx
         pipx ensurepath
     fi
 
