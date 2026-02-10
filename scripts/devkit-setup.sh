@@ -92,7 +92,7 @@ _install_python() {
     fi
 
     echo_info "Installing sigstore verification package..."
-    pipx install --force --no-cache-dir sigstore
+    pipx install --force sigstore
 
     local pkg_bname=$(basename $pkgfile)
     local pkg_base=$(tar_xz_pkgbase $pkgfile)
