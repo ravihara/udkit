@@ -78,8 +78,9 @@ _install_python() {
     local version=$2
 
     if [ -z "$(command -v pipx 2>/dev/null)" ]; then
-        echo_error "An existing 'pipx' installation is required to install 'sigstore' for signature verification."
-        return 1
+        echo_info "The pipx tool is needed to install sigstore for signature verification. Installing pipx..."
+        sudo apt install -y pipx
+        pipx ensurepath
     fi
 
     ## Verify python source tarball using sigstore
@@ -91,7 +92,7 @@ _install_python() {
     fi
 
     echo_info "Installing sigstore verification package..."
-    pipx install sigstore
+    pipx install --force --no-cache-dir sigstore
 
     local pkg_bname=$(basename $pkgfile)
     local pkg_base=$(tar_xz_pkgbase $pkgfile)
